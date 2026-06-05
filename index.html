@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Playing Now — live in your city</title>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<style>
+  :root {
+    --bg: #14110f;
+    --panel: #1f1a17;
+    --panel-2: #2a231e;
+    --ink: #f4ece2;
+    --muted: #a99c8c;
+    --accent: #e8643c;     /* warm orange */
+    --accent-2: #f2b44a;   /* amber */
+    --live: #ff5a5a;
+    --line: #3a302a;
+    --radius: 16px;
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); }
+  body {
+    display: flex; flex-direction: column; min-height: 100vh;
+    background:
+      radial-gradient(1200px 600px at 80% -10%, rgba(232,100,60,0.18), transparent 60%),
+      radial-gradient(900px 500px at -10% 110%, rgba(242,180,74,0.12), transparent 55%),
+      var(--bg);
+  }
+
+  /* ---------- Header ---------- */
+  header {
+    display: flex; align-items: center; gap: 18px;
+    padding: 16px 24px; border-bottom: 1px solid var(--line);
+    backdrop-filter: blur(6px);
+  }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .brand .logo {
+    width: 34px; height: 34px; border-radius: 50%;
+    background: conic-gradient(from 0deg, #111, #333, #111);
+    box-shadow: inset 0 0 0 4px #0b0a09, inset 0 0 0 10px #2a231e, 0 0 0 1px var(--line);
+    position: relative;
+  }
+  .brand .logo::after {
+    content: ""; position: absolute; inset: 0; margin: auto;
+    width: 8px; height: 8px; border-radius: 50%; background: var(--accent-2);
+  }
+  .brand h1 { font-size: 19px; margin: 0; letter-spacing: 0.5px; font-weight: 800; }
+  .brand h1 b { color: var(--accent); }
+  .brand .tag { font-size: 12px; color: var(--muted); margin-top: 1px; }
+
+  .controls { margin-left: auto; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  select, .seg {
+    background: var(--panel-2); color: var(--ink); border: 1px solid var(--line);
+    border-radius: 10px; padding: 8px 12px; font-size: 13px; cursor: pointer;
+  }
+  .seg { display: inline-flex; padding: 4px; gap: 4px; }
+  .seg button {
+    border: 0; background: transparent; color: var(--muted);
+    padding: 6px 12px; border-radius: 7px; cursor: pointer; font-size: 13px; font-weight: 600;
+  }
+  .seg button.active { background: var(--accent); color: #1a120e; }
+
+  /* ---------- Layout ---------- */
+  main {
+    flex: 1; display: grid; grid-template-columns: 380px 1fr; gap: 0;
+    min-height: 0;
+  }
+  @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+
+  /* ---------- Player column ---------- */
+  .player-col {
+    border-right: 1px solid var(--line); padding: 22px;
+    display: flex; flex-direction: column; gap: 18px; overflow-y: auto;
+  }
+  .turntable {
+    position: relative; aspect-ratio: 1; border-radius: var(--radius);
+    background: linear-gradient(160deg, #2a231e, #1a1512);
+    border: 1px solid var(--line);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.04), 0 18px 40px rgba(0,0,0,0.5);
+    padding: 26px; transition: box-shadow .3s;
+  }
+  .turntable.armed { box-shadow: 0 0 0 2px var(--accent), 0 18px 40px rgba(0,0,0,0.5); }
+  .platter {
+    position: absolute; inset: 26px; border-radius: 50%;
+    background:
+      repeating-radial-gradient(circle at center, #0d0b0a 0 2px, #161210 2px 4px);
+    box-shadow: inset 0 0 60px rgba(0,0,0,0.8), 0 0 0 1px #000;
+    display: grid; place-items: center;
+    animation: spin 4s linear infinite; animation-play-state: paused;
+  }
+  .turntable.playing .platter { animation-play-state: running; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .label {
+    width: 42%; height: 42%; border-radius: 50%;
+    background: radial-gradient(circle at 50% 40%, var(--accent-2), var(--accent) 70%, #b94a28);
+    display: grid; place-items: center; text-align: center; color: #2a160d;
+    box-shadow: inset 0 0 0 4px rgba(0,0,0,0.15); padding: 10px; overflow: hidden;
+  }
+  .label .spindle {
+    position: absolute; width: 10px; height: 10px; border-radius: 50%;
+    background: #14110f; box-shadow: 0 0 0 3px rgba(0,0,0,0.4);
+  }
+  .label small { display: block; font-size: 9px; opacity: 0.7; font-weight: 700; letter-spacing: 1px; }
+  .label strong { font-size: 13px; line-height: 1.1; font-weight: 800; }
+  .tonearm {
+    position: absolute; top: 30px; right: 30px; width: 46%; height: 8px;
+    transform-origin: right center; transform: rotate(-28deg);
+    transition: transform .5s ease;
+  }
+  .turntable.playing .tonearm { transform: rotate(-6deg); }
+  .tonearm::before {
+    content: ""; position: absolute; right: -6px; top: -6px; width: 20px; height: 20px;
+    border-radius: 50%; background: #4a3f38; box-shadow: 0 0 0 1px var(--line);
+  }
+  .tonearm::after {
+    content: ""; position: absolute; left: 0; top: 0; width: 100%; height: 100%;
+    background: linear-gradient(#6a5b50, #3a302a); border-radius: 4px;
+  }
+
+  .drop-hint {
+    position: absolute; inset: 26px; border-radius: 50%; display: grid; place-items: center;
+    color: var(--muted); font-size: 13px; text-align: center; pointer-events: none;
+    padding: 30px; line-height: 1.4;
+  }
+  .turntable.playing .drop-hint { display: none; }
+
+  .now-playing { display: flex; flex-direction: column; gap: 6px; }
+  .now-playing .np-artist { font-size: 17px; font-weight: 800; }
+  .now-playing .np-meta { font-size: 13px; color: var(--muted); }
+  .np-empty { color: var(--muted); font-size: 13px; }
+
+  .embed-wrap { border-radius: 12px; overflow: hidden; border: 1px solid var(--line); min-height: 80px; }
+  .embed-wrap iframe { display: block; width: 100%; border: 0; }
+
+  /* ---------- Crate (artist list) ---------- */
+  .crate h3 { margin: 4px 0 10px; font-size: 13px; letter-spacing: 1px; color: var(--muted); text-transform: uppercase; }
+  .crate-list { display: flex; flex-direction: column; gap: 8px; }
+  .card {
+    display: flex; align-items: center; gap: 12px; padding: 10px;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+    cursor: grab; transition: transform .12s, border-color .12s, background .12s;
+  }
+  .card:hover { transform: translateY(-1px); border-color: var(--accent); background: var(--panel-2); }
+  .card:active { cursor: grabbing; }
+  .card.dragging { opacity: 0.4; }
+  .card .avatar {
+    width: 46px; height: 46px; border-radius: 10px; flex: none; overflow: hidden;
+    background: var(--panel-2); display: grid; place-items: center; font-weight: 800; color: var(--accent-2);
+    background-size: cover; background-position: center;
+  }
+  .card .info { min-width: 0; flex: 1; }
+  .card .info .name { font-weight: 700; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .card .info .sub { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .card .when { font-size: 11px; color: var(--accent-2); font-weight: 700; white-space: nowrap; }
+  .genre-pill {
+    font-size: 10px; padding: 2px 7px; border-radius: 999px; background: rgba(232,100,60,0.16);
+    color: var(--accent-2); font-weight: 700; align-self: flex-start;
+  }
+
+  /* ---------- Map ---------- */
+  .map-col { position: relative; min-height: 360px; }
+  #map { position: absolute; inset: 0; background: #0d0b0a; }
+  .leaflet-container { background: #0d0b0a; }
+  .map-overlay {
+    position: absolute; top: 14px; left: 14px; z-index: 500;
+    background: rgba(20,17,15,0.82); border: 1px solid var(--line);
+    border-radius: 12px; padding: 10px 14px; backdrop-filter: blur(8px);
+  }
+  .map-overlay .count { font-size: 22px; font-weight: 800; }
+  .map-overlay .count b { color: var(--accent); }
+  .map-overlay .sub { font-size: 12px; color: var(--muted); }
+
+  /* pulsing marker */
+  .pulse-marker { position: relative; }
+  .pulse-dot {
+    width: 14px; height: 14px; border-radius: 50%;
+    background: var(--accent); border: 2px solid #fff3; box-shadow: 0 0 10px var(--accent);
+    position: relative; z-index: 2;
+  }
+  .pulse-ring {
+    position: absolute; left: 50%; top: 50%; width: 14px; height: 14px;
+    border-radius: 50%; background: var(--accent); transform: translate(-50%,-50%);
+    animation: pulse 2s ease-out infinite; z-index: 1;
+  }
+  @keyframes pulse {
+    0% { transform: translate(-50%,-50%) scale(1); opacity: 0.6; }
+    100% { transform: translate(-50%,-50%) scale(4.5); opacity: 0; }
+  }
+  .leaflet-popup-content-wrapper { background: var(--panel); color: var(--ink); border: 1px solid var(--line); }
+  .leaflet-popup-tip { background: var(--panel); }
+  .popup-card { min-width: 180px; }
+  .popup-card .pc-name { font-weight: 800; font-size: 15px; }
+  .popup-card .pc-meta { font-size: 12px; color: var(--muted); margin: 4px 0 10px; }
+  .popup-card button {
+    width: 100%; border: 0; border-radius: 8px; padding: 8px; cursor: pointer;
+    background: var(--accent); color: #1a120e; font-weight: 800; font-size: 13px;
+  }
+  .leaflet-bar a { background: var(--panel-2); color: var(--ink); border-color: var(--line); }
+</style>
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <div class="logo"></div>
+      <div>
+        <h1>Playing <b>Now</b></h1>
+        <div class="tag">live artists in your city, right now</div>
+      </div>
+    </div>
+    <div class="controls">
+      <select id="citySelect" title="City"></select>
+      <div class="seg" id="whenSeg">
+        <button data-when="weekend" class="active">This weekend</button>
+        <button data-when="week">This week</button>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <!-- ===================== PLAYER COLUMN ===================== -->
+    <section class="player-col">
+      <div class="turntable" id="turntable" aria-label="Drop an artist here to listen">
+        <div class="platter">
+          <div class="label" id="platterLabel">
+            <div class="spindle"></div>
+            <div>
+              <small>PLAYING NOW</small>
+              <strong id="labelText">—</strong>
+            </div>
+          </div>
+        </div>
+        <div class="tonearm"></div>
+        <div class="drop-hint" id="dropHint">🎧<br/>Drag an artist onto the platter to hear a sample</div>
+      </div>
+
+      <div class="now-playing" id="nowPlaying">
+        <div class="np-empty">Nothing on the platter yet — pick someone playing tonight.</div>
+      </div>
+
+      <div class="embed-wrap" id="embedWrap" style="display:none"></div>
+
+      <div class="crate">
+        <h3 id="crateTitle">Playing this weekend</h3>
+        <div class="crate-list" id="crateList"></div>
+      </div>
+    </section>
+
+    <!-- ===================== MAP COLUMN ===================== -->
+    <section class="map-col">
+      <div id="map"></div>
+      <div class="map-overlay">
+        <div class="count"><b id="liveCount">0</b> shows live</div>
+        <div class="sub" id="cityLabel"></div>
+      </div>
+    </section>
+  </main>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+/* ============================================================
+   MOCK DATA  —  swap this block for your real API.
+   Expected shape per show:
+   {
+     id, artist, genre, venue, date (ISO), when ('weekend'|'week'),
+     lat, lng, spotifyArtistId (or spotifyTrackId), image (optional)
+   }
+   Replace loadShows() below with: const r = await fetch(API_URL); ...
+   ============================================================ */
+const CITIES = {
+  sf: {
+    name: "San Francisco", center: [37.7749, -122.4194], zoom: 13,
+    shows: [
+      { id:1, artist:"Tycho", genre:"Electronic", venue:"The Fillmore", date:"2026-06-06T21:00", when:"weekend", lat:37.7841, lng:-122.4330, spotifyArtistId:"5oOhM2DFWab8XhSdQiITry" },
+      { id:2, artist:"Toro y Moi", genre:"Indie", venue:"The Independent", date:"2026-06-06T20:00", when:"weekend", lat:37.7765, lng:-122.4376, spotifyArtistId:"1QAJqy2dA3ihHBFIHRphZj" },
+      { id:3, artist:"Khruangbin", genre:"Psych / Funk", venue:"Great American Music Hall", date:"2026-06-07T20:30", when:"weekend", lat:37.7855, lng:-122.4186, spotifyArtistId:"2mVVjNmdjXZZDvhgQWiakk" },
+      { id:4, artist:"Thundercat", genre:"Jazz / Funk", venue:"The Warfield", date:"2026-06-07T21:00", when:"weekend", lat:37.7827, lng:-122.4100, spotifyArtistId:"26d8Rd9pgWlc2Ws0qjJYUk" },
+      { id:5, artist:"Bonobo", genre:"Electronic", venue:"August Hall", date:"2026-06-05T22:00", when:"weekend", lat:37.7866, lng:-122.4090, spotifyArtistId:"1Bl6wpkWCQ4KVgnASpvzzA" },
+      { id:6, artist:"Mac DeMarco", genre:"Indie", venue:"The Chapel", date:"2026-06-09T20:00", when:"week", lat:37.7530, lng:-122.4197, spotifyArtistId:"3Sz7ZnJQBIHsXLUSo0OQtM" },
+      { id:7, artist:"Phoebe Bridgers", genre:"Indie Folk", venue:"Bottom of the Hill", date:"2026-06-10T20:30", when:"week", lat:37.7607, lng:-122.3962, spotifyArtistId:"1r1uxoy19fzMxunt3ONAkG" },
+      { id:8, artist:"Polo & Pan", genre:"Electronic", venue:"The Midway", date:"2026-06-11T21:00", when:"week", lat:37.7475, lng:-122.3880, spotifyArtistId:"1Wccdce7tQX2pZF9jVHCSk" }
+    ]
+  },
+  la: {
+    name: "Los Angeles", center: [34.0522, -118.2437], zoom: 12,
+    shows: [
+      { id:11, artist:"Kamasi Washington", genre:"Jazz", venue:"The Novo", date:"2026-06-06T20:00", when:"weekend", lat:34.0430, lng:-118.2673, spotifyArtistId:"5SgcjU3bgTUNFQYHHJrcgU" },
+      { id:12, artist:"Phantogram", genre:"Electronic", venue:"The Fonda", date:"2026-06-07T21:00", when:"weekend", lat:34.1016, lng:-118.3260, spotifyArtistId:"1XThKWv9ekIYBfp3wGfGf9" },
+      { id:13, artist:"Mac DeMarco", genre:"Indie", venue:"The Greek Theatre", date:"2026-06-10T20:00", when:"week", lat:34.1186, lng:-118.2939, spotifyArtistId:"3Sz7ZnJQBIHsXLUSo0OQtM" }
+    ]
+  }
+};
+
+/* In production, replace this with a fetch to your API. */
+async function loadShows(cityKey) {
+  // Example:
+  // const r = await fetch(`/api/shows?city=${cityKey}`);
+  // return await r.json();
+  return CITIES[cityKey].shows;
+}
+
+/* ============================================================
+   APP
+   ============================================================ */
+let map, markerLayer, currentWhen = "weekend", currentCity = "sf", allShows = [];
+
+const els = {
+  citySelect: document.getElementById("citySelect"),
+  whenSeg: document.getElementById("whenSeg"),
+  crateList: document.getElementById("crateList"),
+  crateTitle: document.getElementById("crateTitle"),
+  turntable: document.getElementById("turntable"),
+  labelText: document.getElementById("labelText"),
+  dropHint: document.getElementById("dropHint"),
+  nowPlaying: document.getElementById("nowPlaying"),
+  embedWrap: document.getElementById("embedWrap"),
+  liveCount: document.getElementById("liveCount"),
+  cityLabel: document.getElementById("cityLabel"),
+};
+
+function initCities() {
+  els.citySelect.innerHTML = Object.entries(CITIES)
+    .map(([k, c]) => `<option value="${k}">${c.name}</option>`).join("");
+  els.citySelect.value = currentCity;
+}
+
+function initMap() {
+  map = L.map("map", { zoomControl: true, attributionControl: false })
+        .setView(CITIES[currentCity].center, CITIES[currentCity].zoom);
+  L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
+    maxZoom: 19
+  }).addTo(map);
+  markerLayer = L.layerGroup().addTo(map);
+}
+
+function fmtWhen(iso) {
+  const d = new Date(iso);
+  const day = d.toLocaleDateString(undefined, { weekday: "short" });
+  const time = d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+  return `${day} · ${time}`;
+}
+
+function initials(name) {
+  return name.split(/\s+/).slice(0,2).map(w => w[0]).join("").toUpperCase();
+}
+
+function visibleShows() {
+  return allShows.filter(s => currentWhen === "week" ? true : s.when === "weekend");
+  // 'week' shows everything; 'weekend' filters to weekend only
+}
+
+function renderCrate() {
+  const shows = visibleShows();
+  els.crateTitle.textContent = currentWhen === "weekend" ? "Playing this weekend" : "Playing this week";
+  els.crateList.innerHTML = shows.map(s => `
+    <div class="card" draggable="true" data-id="${s.id}">
+      <div class="avatar">${s.image ? "" : initials(s.artist)}</div>
+      <div class="info">
+        <div class="name">${s.artist}</div>
+        <div class="sub">${s.venue}</div>
+      </div>
+      <div style="text-align:right; display:flex; flex-direction:column; gap:4px; align-items:flex-end;">
+        <span class="genre-pill">${s.genre}</span>
+        <span class="when">${fmtWhen(s.date)}</span>
+      </div>
+    </div>`).join("");
+
+  els.crateList.querySelectorAll(".card").forEach(card => {
+    const id = +card.dataset.id;
+    card.addEventListener("dragstart", e => {
+      e.dataTransfer.setData("text/plain", id);
+      card.classList.add("dragging");
+    });
+    card.addEventListener("dragend", () => card.classList.remove("dragging"));
+    card.addEventListener("click", () => play(id));   // click also works
+  });
+}
+
+function renderMarkers() {
+  markerLayer.clearLayers();
+  const shows = visibleShows();
+  els.liveCount.textContent = shows.length;
+  els.cityLabel.textContent = `${CITIES[currentCity].name} · ${currentWhen === "weekend" ? "this weekend" : "this week"}`;
+
+  shows.forEach(s => {
+    const icon = L.divIcon({
+      className: "pulse-marker",
+      html: `<div class="pulse-ring"></div><div class="pulse-dot"></div>`,
+      iconSize: [14,14], iconAnchor: [7,7]
+    });
+    const m = L.marker([s.lat, s.lng], { icon }).addTo(markerLayer);
+    m.bindPopup(`
+      <div class="popup-card">
+        <div class="pc-name">${s.artist}</div>
+        <div class="pc-meta">${s.genre} · ${s.venue}<br/>${fmtWhen(s.date)}</div>
+        <button onclick="play(${s.id})">▶ Listen on the player</button>
+      </div>`);
+  });
+}
+
+function play(id) {
+  const s = allShows.find(x => x.id === id);
+  if (!s) return;
+
+  els.turntable.classList.add("playing");
+  els.labelText.textContent = s.artist;
+
+  els.nowPlaying.innerHTML = `
+    <div class="np-artist">${s.artist}</div>
+    <div class="np-meta">${s.genre} · ${s.venue} · ${fmtWhen(s.date)}</div>`;
+
+  // Spotify embed (artist or track). Swap for Tidal embed if you prefer.
+  const embedSrc = s.spotifyTrackId
+    ? `https://open.spotify.com/embed/track/${s.spotifyTrackId}?utm_source=playingnow`
+    : `https://open.spotify.com/embed/artist/${s.spotifyArtistId}?utm_source=playingnow`;
+  els.embedWrap.style.display = "block";
+  els.embedWrap.innerHTML =
+    `<iframe src="${embedSrc}" height="152" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy"></iframe>`;
+
+  // highlight on map
+  map.flyTo([s.lat, s.lng], 15, { duration: 0.8 });
+}
+
+function initDrop() {
+  const t = els.turntable;
+  ["dragenter","dragover"].forEach(ev =>
+    t.addEventListener(ev, e => { e.preventDefault(); t.classList.add("armed"); }));
+  ["dragleave","drop"].forEach(ev =>
+    t.addEventListener(ev, () => t.classList.remove("armed")));
+  t.addEventListener("drop", e => {
+    e.preventDefault();
+    const id = +e.dataTransfer.getData("text/plain");
+    if (id) play(id);
+  });
+}
+
+async function loadCity() {
+  allShows = await loadShows(currentCity);
+  map.setView(CITIES[currentCity].center, CITIES[currentCity].zoom);
+  renderCrate();
+  renderMarkers();
+}
+
+function initEvents() {
+  els.citySelect.addEventListener("change", e => { currentCity = e.target.value; loadCity(); });
+  els.whenSeg.querySelectorAll("button").forEach(b => {
+    b.addEventListener("click", () => {
+      els.whenSeg.querySelectorAll("button").forEach(x => x.classList.remove("active"));
+      b.classList.add("active");
+      currentWhen = b.dataset.when;
+      renderCrate();
+      renderMarkers();
+    });
+  });
+}
+
+/* boot */
+initCities();
+initMap();
+initDrop();
+initEvents();
+loadCity();
+window.play = play; // for popup buttons
+</script>
+</body>
+</html>
