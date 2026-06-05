@@ -1,4 +1,4 @@
-# Playing Now 🎧
+# Now Playing 🎧
 
 A prototype web app for discovering artists playing live in your city this week/weekend.
 A spinning turntable on the left, a pulsing live-shows map on the right. Drag an artist
