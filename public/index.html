@@ -440,7 +440,7 @@
       <div class="np-player">
         <div class="np-loc" id="npLoc">San Francisco</div>
         <div class="player-frame">
-      <div class="player-stage mode-vinyl" id="playerStage" aria-label="Drop an artist here to listen">
+      <div class="player-stage mode-cassette" id="playerStage" aria-label="Drop an artist here to listen">
         <!-- Vinyl -->
         <div class="turntable" id="turntable">
           <div class="platter">
@@ -492,8 +492,8 @@
       </div>
         </div><!-- /player-frame -->
         <div class="seg seg-sm" id="playerToggle">
-          <button data-player="vinyl" class="active">Vinyl</button>
-          <button data-player="cassette">Cassette</button>
+          <button data-player="vinyl">Vinyl</button>
+          <button data-player="cassette" class="active">Cassette</button>
         </div>
       </div><!-- /np-player -->
 
@@ -1006,12 +1006,12 @@ function initEvents() {
 
 /* boot */
 const savedTheme = (() => { try { return localStorage.getItem("pn-theme"); } catch (e) { return null; } })() || "light";
-const savedPlayer = (() => { try { return localStorage.getItem("np-player"); } catch (e) { return null; } })() || "vinyl";
+const savedPlayer = (() => { try { return localStorage.getItem("np-player"); } catch (e) { return null; } })() || "cassette";
 initCities();
 initGenres();
 syncGenreBar();
 initPlayerToggle();
-setPlayer(savedPlayer);   // default vinyl; restores last choice
+setPlayer(savedPlayer);   // default cassette; restores last choice
 initMap();
 setTheme(savedTheme);   // default light; restores last choice
 initDrop();
