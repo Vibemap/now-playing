@@ -1,9 +1,9 @@
 [build]
-  publish = "."
+  publish = "public"
   functions = "netlify/functions"
 
 # `netlify dev` serves the static page + functions together on one port.
 [dev]
   framework = "#static"
-  publish = "."
+  publish = "public"
   port = 5599

@@ -13,9 +13,10 @@ with the Netlify CLI to get the function locally:
 npx netlify dev      # serves index.html + functions on http://localhost:5599
 ```
 
-Without Spotify credentials the player still works — it just shows a "search on Spotify"
-link instead of an embedded track. For UI-only work, any static server is fine
-(`npx serve .`), but the `/.netlify/functions/*` calls will 404 and fall back.
+The static site lives in `public/`; the function in `netlify/functions/`. Without Spotify
+credentials the player still works — it just shows a "search on Spotify" link instead of an
+embedded track. For UI-only work, any static server is fine (`npx serve public`), but the
+`/.netlify/functions/*` calls will 404 and fall back.
 
 ## Connect Spotify (for real audio)
 
