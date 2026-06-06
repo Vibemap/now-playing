@@ -27,18 +27,43 @@ async function getToken(id, secret) {
   return tokenCache.token;
 }
 
-// Event titles are messy ("Live Music at The Grove - Ian Santillano").
-// Try the full string first, then the segment after a dash/colon.
-function candidates(name) {
-  const n = (name || "").trim();
-  if (!n) return [];
-  const out = [n];
-  const parts = n.split(/\s[-–—:|]\s/);
-  if (parts.length > 1) {
-    const tail = parts[parts.length - 1].trim();
-    if (tail.length >= 2 && tail.toLowerCase() !== n.toLowerCase()) out.push(tail);
+// Event titles are messy: "By Storm (FKA Injury Reserve) — My Ghost Go Ghost Tour",
+// "Live Music at The Grove - Ian Santillano", "San Francisco Opera - The Barber…".
+// Derive an ORDERED list of likely performer names (best guess first).
+const SEPARATOR = /\s*[—–]\s*|\s+-\s+|\s*[:|•·\/]\s+|\s+(?:presents?|feat\.?|ft\.?|featuring|with|w\/|x)\s+/i;
+const VENUE_PREFIX = /^(live music|live|music|an evening|a night|tonight|presented|presents|dj set|brunch|happy hour|open mic|karaoke|sunday|monday|tuesday|wednesday|thursday|friday|saturday)\b/i;
+const TOUR_SUFFIX = /\b(tour|live|concert|in concert|residency|world tour|album release|release party|experience|presents)\b.*$/i;
+const VENUE_WORDS = /\b(hall|theat(?:er|re)|club|society|arts|cent(?:er|re)|lounge|room|bar|stage|saloon|venue|auditorium|house|park|cafe|chapel|church|gallery|garden|winery|street|ave|avenue|sf)\b/i;
+
+function candidates(rawName) {
+  const n0 = (rawName || "").trim();
+  if (!n0) return [];
+  const out = [];
+  const add = (s) => {
+    s = (s || "").replace(TOUR_SUFFIX, "").replace(/[,–—\-:|•·]+$/, "").replace(/\s{2,}/g, " ").trim();
+    if (s.length >= 2 && !out.some((x) => x.toLowerCase() === s.toLowerCase())) out.push(s);
+  };
+
+  // capture a "FKA / aka / formerly" alias before stripping parentheticals
+  const alias = n0.match(/\b(?:fka|aka|formerly|f\.k\.a\.?)\s+([^)\]]+)/i);
+
+  // drop parentheticals/brackets (tour years, "(Live)", "(FKA …)")
+  const n = n0.replace(/[\(\[][^\)\]]*[\)\]]/g, " ").replace(/\s{2,}/g, " ").trim();
+
+  const segs = n.split(SEPARATOR).map((s) => s.trim()).filter(Boolean);
+
+  // "<artist> at <venue>" — split only when the right side looks like a venue
+  const atV = n.match(/^(.+?)\s+at\s+(.+)$/i);
+  if (atV && VENUE_WORDS.test(atV[2])) add(atV[1].split(SEPARATOR)[0].trim());
+
+  if (segs.length) {
+    if (VENUE_PREFIX.test(segs[0]) && segs[1]) add(segs[1]); // "Live Music at … - <artist>"
+    else add(segs[0]);                                       // artist is usually the first chunk
   }
-  return [...new Set(out)];
+  if (alias && alias[1]) add(alias[1]);                      // former (often better-known) name
+  if (segs[1]) add(segs[1]);                                 // other side of the separator
+  add(n);                                                    // whole cleaned title, last resort
+  return out.slice(0, 4);
 }
 
 async function searchOne(token, q) {
