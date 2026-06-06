@@ -111,41 +111,41 @@
   .chip:hover { border-color: var(--accent); }
   .chip.active { background: var(--accent); border-color: var(--accent); color: #1a120e; }
 
-  /* ---------- Layout: compact player bar above the map ---------- */
+  /* ---------- Layout: map on top, playlist below, player straddling the seam ---------- */
   main { flex: 1; display: flex; flex-direction: column; min-height: 0; }
 
-  .now-bar {
-    display: flex; gap: 20px; padding: 16px 22px; align-items: flex-start;
-    border-bottom: 1px solid var(--line); background: var(--panel);
+  /* MAP (top) */
+  .map-col { position: relative; flex: 1 1 56%; min-height: 280px; overflow: visible; }
+
+  /* stage: location + visualizer + player, centered, dipping into the playlist */
+  .stage {
+    position: absolute; left: 50%; bottom: 0; transform: translateX(-50%);
+    display: flex; flex-direction: column; align-items: center; gap: 8px;
+    z-index: 600; pointer-events: none; width: max-content;
   }
-  /* compact player with the location centered above it */
-  .np-player { flex: none; width: 188px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+  .stage > * { pointer-events: auto; }
   .np-loc {
-    width: 100%; font-size: 13px; font-weight: 800; letter-spacing: .3px; color: var(--ink);
-    text-align: center; line-height: 1.2;
+    font-size: 13px; font-weight: 800; letter-spacing: .3px; color: var(--ink);
+    text-align: center; background: var(--overlay-bg); border: 1px solid var(--line);
+    border-radius: 999px; padding: 5px 14px; backdrop-filter: blur(6px);
   }
   .np-loc::before { content: "📍 "; }
 
-  /* render the players at a clean base size, scaled down to fit the bar */
-  .player-frame { position: relative; width: 150px; height: 150px; flex: none; }
-  .player-frame:has(.mode-cassette) { height: 100px; }
-  .player-frame .player-stage {
-    position: absolute; top: 0; left: 0; width: 320px;
-    transform: scale(0.46875); transform-origin: top left;
+  /* transport: play/pause + visualizer, centered above the player */
+  .transport {
+    display: flex; align-items: center; justify-content: center; gap: 12px; height: 36px;
+    background: var(--overlay-bg); border: 1px solid var(--line); border-radius: 999px;
+    padding: 4px 12px 4px 6px; backdrop-filter: blur(6px);
   }
-  .seg-sm button { padding: 4px 10px; font-size: 12px; }
-
-  /* transport: play/pause + visualizer, centered under the player */
-  .transport { display: flex; align-items: center; justify-content: center; gap: 12px; height: 28px; }
   .pp-btn {
-    width: 34px; height: 34px; border-radius: 50%; border: 0; cursor: pointer;
-    background: var(--accent); color: #1a120e; font-size: 14px; line-height: 1;
+    width: 30px; height: 30px; border-radius: 50%; border: 0; cursor: pointer;
+    background: var(--accent); color: #1a120e; font-size: 13px; line-height: 1;
     display: grid; place-items: center; flex: none; box-shadow: 0 2px 8px rgba(0,0,0,.25);
     transition: transform .1s;
   }
   .pp-btn:hover { transform: scale(1.06); }
   .pp-btn:active { transform: scale(.96); }
-  .viz { display: flex; align-items: flex-end; gap: 3px; height: 24px; }
+  .viz { display: flex; align-items: flex-end; gap: 3px; height: 22px; }
   .viz span { width: 4px; height: 20%; background: var(--muted); border-radius: 2px; transform-origin: bottom; }
   body.is-playing .viz span { background: var(--accent); animation: viz .9s ease-in-out infinite alternate; }
   .viz span:nth-child(1){ animation-delay: 0s;   animation-duration: .70s }
@@ -157,9 +157,24 @@
   .viz span:nth-child(7){ animation-delay: -.1s; animation-duration: .85s }
   @keyframes viz { from { height: 18%; } to { height: 100%; } }
 
-  /* now playing + shuffle/autoplay */
-  .np-info { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 10px; }
-  .np-controls { display: flex; align-items: center; gap: 8px; }
+  /* render the players at a clean base size, scaled down; dip into the playlist */
+  .player-frame { position: relative; width: 150px; height: 150px; flex: none; margin-bottom: -46px; }
+  .player-frame:has(.mode-cassette) { height: 100px; margin-bottom: -34px; }
+  .player-frame .player-stage {
+    position: absolute; top: 0; left: 0; width: 320px;
+    transform: scale(0.46875); transform-origin: top left;
+  }
+  .seg-sm { display: none; }   /* toggle lives in the playlist header now */
+
+  /* PLAYLIST (bottom) */
+  .playlist {
+    flex: 1 1 44%; min-height: 200px; display: flex; flex-direction: column;
+    background: var(--panel); border-top: 1px solid var(--line); padding: 12px 22px 16px;
+  }
+  .playlist-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+  .ph-left { min-width: 0; }
+  .playlist-head h3 { margin: 0 0 4px; font-size: 12px; letter-spacing: 1px; color: var(--muted); text-transform: uppercase; }
+  .ph-controls { display: flex; align-items: center; gap: 8px; flex: none; flex-wrap: wrap; justify-content: flex-end; }
   .ctrl-btn {
     border: 1px solid var(--line); background: var(--panel-2); color: var(--ink);
     border-radius: 999px; padding: 6px 13px; font-size: 13px; font-weight: 700; cursor: pointer;
@@ -167,16 +182,12 @@
   }
   .ctrl-btn:hover { border-color: var(--accent); }
   .ctrl-btn.active { background: var(--accent); border-color: var(--accent); color: #1a120e; }
+  .seg-sm.ph-seg { display: inline-flex; }
+  .seg-sm.ph-seg button { padding: 5px 11px; font-size: 12px; }
 
-  /* crate: full-width strip below the player → room for many artists */
-  .crate-strip { padding: 12px 22px; border-bottom: 1px solid var(--line); background: var(--panel); }
-  .crate-strip h3 { margin: 0 0 8px; font-size: 12px; letter-spacing: 1px; color: var(--muted); text-transform: uppercase; }
-  .crate-strip .crate-list { flex-direction: row; gap: 10px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: thin; }
-  .crate-strip .card { width: 210px; flex: none; }
-
-  @media (max-width: 900px) {
-    .now-bar { flex-direction: column; align-items: stretch; }
-    .np-player { width: 100%; }
+  .crate-list {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(195px, 1fr));
+    gap: 10px; overflow-y: auto; margin-top: 10px; padding: 2px; align-content: start;
   }
 
   /* stage holds both players; only the active mode is shown */
@@ -354,8 +365,14 @@
   }
   .pc-link:hover { text-decoration: underline; }
 
-  .embed-wrap { border-radius: 12px; overflow: hidden; border: 1px solid var(--line); min-height: 80px; }
+  /* Spotify embed as a corner widget over the map */
+  .embed-wrap {
+    position: absolute; right: 14px; bottom: 14px; width: 300px; max-width: 60vw; z-index: 600;
+    border-radius: 12px; overflow: hidden; border: 1px solid var(--line);
+    box-shadow: 0 8px 24px rgba(0,0,0,.35);
+  }
   .embed-wrap iframe { display: block; width: 100%; border: 0; }
+  .embed-wrap .np-fallback { background: var(--overlay-bg); backdrop-filter: blur(6px); }
 
   /* ---------- Crate (artist list) ---------- */
   .crate h3 { margin: 4px 0 10px; font-size: 13px; letter-spacing: 1px; color: var(--muted); text-transform: uppercase; }
@@ -384,7 +401,6 @@
   }
 
   /* ---------- Map ---------- */
-  .map-col { position: relative; flex: 1 1 auto; min-height: 320px; }
   #map { position: absolute; inset: 0; background: var(--map-bg); }
   .leaflet-container { background: var(--map-bg); }
   .map-overlay {
@@ -446,11 +462,21 @@
   <nav class="genre-bar" id="genreBar"></nav>
 
   <main>
-    <!-- ===================== PLAYER BAR ===================== -->
-    <section class="now-bar">
-      <!-- compact player with location above it -->
-      <div class="np-player">
+    <!-- ===================== MAP (top) — player straddles the seam ===================== -->
+    <section class="map-col">
+      <div id="map"></div>
+      <div class="map-overlay">
+        <div class="count"><b id="liveCount">0</b> shows live</div>
+        <div class="sub" id="cityLabel"></div>
+      </div>
+
+      <!-- location + visualizer + player, centered, dipping into the playlist -->
+      <div class="stage">
         <div class="np-loc" id="npLoc">San Francisco</div>
+        <div class="transport">
+          <button class="pp-btn" id="playPauseBtn" aria-label="Play or pause">▶</button>
+          <div class="viz" id="viz" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+        </div>
         <div class="player-frame">
       <div class="player-stage mode-cassette" id="playerStage" aria-label="Drop an artist here to listen">
         <!-- Vinyl -->
@@ -503,45 +529,34 @@
         </div>
       </div>
         </div><!-- /player-frame -->
-        <div class="transport">
-          <button class="pp-btn" id="playPauseBtn" aria-label="Play or pause">▶</button>
-          <div class="viz" id="viz" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
-        </div>
-        <div class="seg seg-sm" id="playerToggle">
-          <button data-player="vinyl">Vinyl</button>
-          <button data-player="cassette" class="active">Cassette</button>
-        </div>
-      </div><!-- /np-player -->
+      </div><!-- /stage -->
 
-      <!-- now playing + controls + visualizer -->
-      <div class="np-info">
-        <div class="np-controls">
+      <!-- spotify player as a corner widget over the map -->
+      <div class="embed-wrap" id="embedWrap" style="display:none">
+        <div id="spotifyEmbed"><div id="spotifyMount"></div></div>
+        <div id="embedMsg" class="np-fallback" style="display:none"></div>
+      </div>
+    </section>
+
+    <!-- ===================== PLAYLIST (bottom) — drag artists up to the player ===================== -->
+    <section class="playlist">
+      <div class="playlist-head">
+        <div class="ph-left">
+          <h3 id="crateTitle">Playing this weekend</h3>
+          <div class="now-playing" id="nowPlaying">
+            <div class="np-empty">Nothing on the platter yet — pick someone playing tonight.</div>
+          </div>
+        </div>
+        <div class="ph-controls">
           <button class="ctrl-btn" id="shuffleBtn" aria-pressed="false" title="Shuffle: play a random show">🔀 Shuffle</button>
           <button class="ctrl-btn" id="autoplayBtn" aria-pressed="false" title="Autoplay: roll into the next show">↻ Autoplay</button>
-        </div>
-        <div class="now-playing" id="nowPlaying">
-          <div class="np-empty">Nothing on the platter yet — pick someone playing tonight.</div>
-        </div>
-        <div class="embed-wrap" id="embedWrap" style="display:none">
-          <div id="spotifyEmbed"><div id="spotifyMount"></div></div>
-          <div id="embedMsg" class="np-fallback" style="display:none"></div>
+          <div class="seg seg-sm ph-seg" id="playerToggle">
+            <button data-player="vinyl">Vinyl</button>
+            <button data-player="cassette" class="active">Cassette</button>
+          </div>
         </div>
       </div>
-    </section>
-
-    <!-- ===================== CRATE (drag artists up to the player) ===================== -->
-    <section class="crate-strip">
-      <h3 id="crateTitle">Playing this weekend</h3>
       <div class="crate-list" id="crateList"></div>
-    </section>
-
-    <!-- ===================== MAP ===================== -->
-    <section class="map-col">
-      <div id="map"></div>
-      <div class="map-overlay">
-        <div class="count"><b id="liveCount">0</b> shows live</div>
-        <div class="sub" id="cityLabel"></div>
-      </div>
     </section>
   </main>
 
