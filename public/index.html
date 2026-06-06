@@ -745,6 +745,7 @@ const els = {
   nextSongBtn: document.getElementById("nextSongBtn"),
   prevVenue: document.getElementById("prevVenue"),
   nextVenue: document.getElementById("nextVenue"),
+  rackTip: document.querySelector(".rack-tip"),
   liveCount: document.getElementById("liveCount"),
   cityLabel: document.getElementById("cityLabel"),
   genreBar: document.getElementById("genreBar"),
@@ -986,6 +987,7 @@ async function play(id) {
 
   currentShowId = s.id;
   trackEndHandled = false;
+  if (els.rackTip) els.rackTip.style.display = "none";   // one-time nudge: hide after first play
   setPlaybackUI(true);                             // optimistic; listener corrects from real state
   document.querySelectorAll(".label-text").forEach(el => el.textContent = s.artist);
   els.npLoc.textContent = s.venue;                 // location pin shows the current venue
