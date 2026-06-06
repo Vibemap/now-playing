@@ -171,11 +171,11 @@
   @keyframes viz { from { height: 18%; } to { height: 100%; } }
 
   /* render the players at a clean base size, scaled down; dip into the playlist */
-  .player-frame { position: relative; width: 150px; height: 150px; flex: none; margin-bottom: -46px; }
-  .player-frame:has(.mode-cassette) { height: 100px; margin-bottom: -34px; }
+  .player-frame { position: relative; width: 208px; height: 208px; flex: none; margin-bottom: -58px; }
+  .player-frame:has(.mode-cassette) { height: 139px; margin-bottom: -42px; }
   .player-frame .player-stage {
     position: absolute; top: 0; left: 0; width: 320px;
-    transform: scale(0.46875); transform-origin: top left;
+    transform: scale(0.65); transform-origin: top left;
   }
   .seg-sm { display: none; }   /* toggle lives in the playlist header now */
 
@@ -498,15 +498,15 @@
 
       <!-- location + visualizer + player, centered, dipping into the playlist -->
       <div class="stage">
-        <div class="loc-nav">
-          <button class="loc-arrow" id="prevVenue" aria-label="Previous venue">‹</button>
-          <div class="np-loc" id="npLoc">San Francisco</div>
-          <button class="loc-arrow" id="nextVenue" aria-label="Next venue">›</button>
-        </div>
         <div class="transport">
           <button class="pp-btn" id="playPauseBtn" aria-label="Play or pause">▶</button>
           <button class="pp-btn pp-skip" id="nextSongBtn" aria-label="Next song by this artist" title="Next song by this artist">⏭</button>
           <div class="viz" id="viz" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+        </div>
+        <div class="loc-nav">
+          <button class="loc-arrow" id="prevVenue" aria-label="Previous venue">‹</button>
+          <div class="np-loc" id="npLoc">San Francisco</div>
+          <button class="loc-arrow" id="nextVenue" aria-label="Next venue">›</button>
         </div>
         <div class="player-frame">
       <div class="player-stage mode-cassette" id="playerStage" aria-label="Drop an artist here to listen">
