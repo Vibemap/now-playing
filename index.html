@@ -134,7 +134,7 @@
   .player-stage { position: relative; }
   .player-stage .cassette { display: none; }
   .player-stage.mode-cassette .turntable { display: none; }
-  .player-stage.mode-cassette .cassette { display: flex; }
+  .player-stage.mode-cassette .cassette { display: block; }
 
   .turntable {
     position: relative; aspect-ratio: 1; border-radius: var(--radius);
@@ -189,51 +189,99 @@
   }
   .player-stage.playing .drop-hint { display: none; }
 
-  /* ---------- Cassette ---------- */
+  /* ---------- Cassette (retro C60) ---------- */
   .cassette {
-    aspect-ratio: 3 / 2; border-radius: 14px; background: var(--cassette-body);
-    border: 1px solid var(--line); padding: 16px;
-    flex-direction: column; gap: 12px;
-    box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 18px 40px rgba(0,0,0,0.5);
+    position: relative; aspect-ratio: 3 / 2; border-radius: 10px;
+    background: linear-gradient(157deg, #2b2b2d 0%, #161618 55%, #0c0c0e 100%);
+    border: 1px solid #000; padding: 8% 6% 0; overflow: hidden;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.06), 0 18px 40px rgba(0,0,0,0.55);
   }
+  /* corner screws */
+  .screw {
+    position: absolute; width: 12px; height: 12px; border-radius: 50%; z-index: 3;
+    background: radial-gradient(circle at 40% 35%, #e6e6e6, #9a9a9a 55%, #5e5e5e);
+    box-shadow: 0 0 0 1px rgba(0,0,0,0.45), inset 0 0 2px rgba(0,0,0,0.4);
+  }
+  .screw::after {
+    content: ""; position: absolute; top: 50%; left: 2px; right: 2px; height: 1.5px;
+    background: #5e5e5e; transform: translateY(-50%) rotate(40deg);
+  }
+  .screw.tl { top: 5%; left: 4%; } .screw.tr { top: 5%; right: 4%; }
+  .screw.bl { bottom: 5%; left: 4%; } .screw.br { bottom: 5%; right: 4%; }
+
+  /* the J-card label */
   .cass-label {
-    background: var(--cassette-label); border-radius: 6px; padding: 7px 12px;
-    text-align: center; border: 1px solid rgba(0,0,0,0.08);
-    box-shadow: inset 0 0 0 2px rgba(0,0,0,0.03);
+    position: relative; height: 62%; border-radius: 3px; overflow: hidden;
+    display: flex; flex-direction: column; box-shadow: 0 2px 4px rgba(0,0,0,0.5);
+    font-family: Georgia, "Times New Roman", serif;
   }
-  .cass-label small {
-    display: block; font-size: 9px; letter-spacing: 1px; font-weight: 800; color: var(--accent);
+  .cl-olive { flex: 1; position: relative; background: #8b8b6b; color: #2c2c1e; padding: 7px 11px; }
+  .cl-row { display: flex; justify-content: space-between; align-items: flex-start; }
+  .cl-logo { display: flex; align-items: center; gap: 5px; }
+  .cl-logo .arcs { width: 20px; height: 13px; }
+  .cl-logo .arcs path { fill: none; stroke: #2c2c1e; stroke-width: 1.6; }
+  .cl-logo small { font-family: Arial, sans-serif; font-size: 6px; font-weight: 800; letter-spacing: .4px; line-height: 1; text-transform: uppercase; }
+  .cl-c60 { text-align: right; font-weight: 800; font-size: 19px; line-height: .85; letter-spacing: -1px; }
+  .cl-c60 small { display: block; font-family: Arial, sans-serif; font-size: 5.5px; font-weight: 700; letter-spacing: .5px; }
+  .cl-title {
+    position: absolute; left: 0; right: 0; top: 47%; transform: translateY(-50%);
+    text-align: center; padding: 0 16%; font-style: italic; font-size: 17px; line-height: 1.05; color: #2c2c1e;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
   }
-  .cass-label .label-text {
-    font-size: 14px; font-weight: 800; color: #2a160d; line-height: 1.15;
-    display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden;
+  .cl-stripe { width: 100%; }
+  .cl-stripe.red { height: 9%; background: #d8533a; }
+  .cl-stripe.yellow { height: 9%; background: #eaa93c; }
+  .cl-cream {
+    height: 24%; background: #f3ede1; color: #2a2018; padding: 0 11px;
+    display: flex; align-items: center; justify-content: space-between; font-family: Arial, sans-serif;
   }
-  .cass-window {
-    flex: 1; position: relative; border-radius: 10px; background: #15110e;
-    display: flex; align-items: center; justify-content: space-around; padding: 0 12%;
-    box-shadow: inset 0 2px 12px rgba(0,0,0,0.7);
+  .cl-side { font-size: 8px; font-weight: 800; letter-spacing: 1px; display: flex; align-items: baseline; gap: 3px; }
+  .cl-side b { font-family: Georgia, serif; font-size: 15px; line-height: 1; }
+  .cl-tag { font-family: Georgia, serif; font-weight: 800; font-size: 8.5px; letter-spacing: .3px; }
+  .cl-stereo { font-size: 8px; font-weight: 800; letter-spacing: 1.5px; }
+
+  /* reels sit over the stripe band */
+  .cass-reels {
+    position: absolute; inset: 0; z-index: 2; pointer-events: none;
+    display: flex; justify-content: space-around; align-items: center; padding: 0 13%;
   }
-  .cass-window .tape {
-    position: absolute; left: 16%; right: 16%; top: 50%; height: 7px;
-    transform: translateY(-50%); border-radius: 3px;
-    background: linear-gradient(#6a4630, #3a2418);
-  }
+  .cass-reels .reel { margin-top: 16%; }
   .reel {
-    position: relative; width: 33%; aspect-ratio: 1; border-radius: 50%;
-    background: radial-gradient(circle at 50% 45%, #2a231e, #0d0b0a 70%);
-    display: grid; place-items: center; box-shadow: 0 0 0 3px #0d0b0a, inset 0 0 8px #000;
+    position: relative; width: 28%; aspect-ratio: 1; border-radius: 50%;
+    background: #17120e; box-shadow: inset 0 0 0 3px rgba(0,0,0,0.55), inset 0 0 10px #000;
+    display: grid; place-items: center;
   }
   .reel .hub {
-    width: 52%; aspect-ratio: 1; border-radius: 50%;
-    background: repeating-conic-gradient(from 0deg, var(--accent-2) 0 14deg, #1a1512 14deg 30deg);
-    box-shadow: 0 0 0 3px #2a231e, inset 0 0 0 3px rgba(0,0,0,0.4);
+    position: relative; width: 86%; aspect-ratio: 1; border-radius: 50%;
+    background: radial-gradient(circle, #d6d6d0 0 60%, #b0b0aa 60% 100%);
+    box-shadow: inset 0 0 0 2px #8f8f88;
+  }
+  .reel .hub::before { /* sprocket teeth, masked to the rim */
+    content: ""; position: absolute; inset: 0; border-radius: 50%;
+    background: repeating-conic-gradient(#17120e 0 6deg, transparent 6deg 16deg);
+    -webkit-mask: radial-gradient(circle, transparent 64%, #000 66%);
+            mask: radial-gradient(circle, transparent 64%, #000 66%);
+  }
+  .reel .hub::after { /* spindle gear */
+    content: ""; position: absolute; inset: 31%; border-radius: 50%;
+    background: repeating-conic-gradient(#17120e 0 12deg, #cdcdc7 12deg 24deg);
   }
   .player-stage.playing .reel .hub { animation: spin 1.6s linear infinite; }
-  .cass-foot { display: flex; justify-content: space-around; padding: 0 8%; }
-  .cass-foot span {
-    width: 9px; height: 9px; border-radius: 50%;
-    background: radial-gradient(circle at 40% 35%, #5a4d43, #2a231e);
-    box-shadow: inset 0 0 0 1px rgba(0,0,0,0.4);
+
+  /* bottom mechanism door */
+  .cass-door {
+    position: absolute; left: 50%; bottom: 6%; transform: translateX(-50%);
+    width: 44%; height: 20%; border-radius: 7px 7px 9px 9px;
+    background: linear-gradient(#1c1c1e, #0a0a0c); display: grid; place-items: center;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), inset 0 -6px 10px rgba(0,0,0,0.5);
+  }
+  .cass-door::after {
+    content: ""; position: absolute; bottom: -1px; left: 50%; transform: translateX(-50%);
+    width: 30%; height: 7px; background: #0c0c0e; border-radius: 6px 6px 0 0;
+  }
+  .cass-door .dot {
+    width: 15px; height: 15px; border-radius: 50%; border: 2px solid #3a3a3c;
+    background: radial-gradient(circle at 40% 35%, #2a2a2c, #111);
   }
 
   .now-playing { display: flex; flex-direction: column; gap: 6px; }
@@ -376,16 +424,36 @@
 
         <!-- Cassette -->
         <div class="cassette">
+          <span class="screw tl"></span><span class="screw tr"></span>
+          <span class="screw bl"></span><span class="screw br"></span>
           <div class="cass-label">
-            <small>NOW PLAYING</small>
-            <span class="label-text">—</span>
+            <div class="cl-olive">
+              <div class="cl-row">
+                <span class="cl-logo">
+                  <svg class="arcs" viewBox="0 0 24 14" aria-hidden="true">
+                    <path d="M2 12 A10 10 0 0 1 22 12"/>
+                    <path d="M6 12 A6 6 0 0 1 18 12"/>
+                    <path d="M10 12 A2 2 0 0 1 14 12"/>
+                  </svg>
+                  <small>Now<br/>Playing</small>
+                </span>
+                <span class="cl-c60">C60<small>LIVE IN SF</small></span>
+              </div>
+              <div class="cl-title label-text">—</div>
+            </div>
+            <div class="cl-stripe red"></div>
+            <div class="cl-stripe yellow"></div>
+            <div class="cl-cream">
+              <span class="cl-side"><b>A</b> SIDE</span>
+              <span class="cl-tag">LIVE IN YOUR CITY</span>
+              <span class="cl-stereo">STEREO</span>
+            </div>
+            <div class="cass-reels">
+              <div class="reel"><div class="hub"></div></div>
+              <div class="reel"><div class="hub"></div></div>
+            </div>
           </div>
-          <div class="cass-window">
-            <div class="tape"></div>
-            <div class="reel"><div class="hub"></div></div>
-            <div class="reel"><div class="hub"></div></div>
-          </div>
-          <div class="cass-foot"><span></span><span></span><span></span></div>
+          <div class="cass-door"><span class="dot"></span></div>
         </div>
       </div>
 
