@@ -480,8 +480,8 @@
     <div class="controls">
       <select id="citySelect" title="City"></select>
       <div class="seg" id="whenSeg">
-        <button data-when="weekend" class="active">This weekend</button>
-        <button data-when="week">This week</button>
+        <button data-when="weekend">This weekend</button>
+        <button data-when="week" class="active">This week</button>
       </div>
       <button class="theme-btn" id="themeToggle" title="Toggle light / dark">🌙</button>
     </div>
@@ -627,7 +627,7 @@ let currentGenre = "Music";
    curated set, so the tag wouldn't actually filter. Plain tags=<genre> does. */
 function sfApiUrl(genre) {
   return "https://api.vibemap.com/v0.3/search/events" +
-    "?boundarySelectorLabel=Neighborhood&boundary=san-francisco&page_size=200" +
+    "?boundarySelectorLabel=Neighborhood&boundary=san-francisco&page_size=400" +
     "&tags=" + encodeURIComponent(genre);
 }
 
@@ -708,7 +708,7 @@ async function loadShows(cityKey) {
 /* ============================================================
    APP
    ============================================================ */
-let map, markerLayer, currentWhen = "weekend", currentCity = "sf", allShows = [];
+let map, markerLayer, currentWhen = "week", currentCity = "sf", allShows = [];
 let currentShowId = null, autoplayOn = false, shuffleOn = false, trackEndHandled = false;
 let songState = null;   // { list: [{id,name}], idx } — an artist's tracks, for randomize/skip
 
