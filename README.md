@@ -29,6 +29,8 @@ npx serve .
   "View on SF LIVE ↗" link in the player and "Details on SF LIVE ↗" in map popups).
 - **Spotify** — embeds a preview when a show has a linked Spotify id; otherwise offers a
   "search on Spotify" link (the feed has no music ids yet — see below).
+- **Genre filter** — chips (Music · Comedy · Dance · Theater · Nightlife) re-query the
+  Vibemap API per genre; defaults to Music. Hidden for non-live (mock) cities.
 - **Light / dark toggle** + **This weekend / This week** date filter.
 
 ## Data source (Vibemap)
@@ -48,10 +50,15 @@ SF data is fetched and normalized in [index.html](index.html) — see `VIBEMAP_A
 }
 ```
 
-The query is already scoped to SF + `tags=Music`, so the crate is all music acts. The
-toggle filters by date window relative to today (weekend = Fri–Sun; week = next 7 days),
-and recurring occurrences are collapsed to the soonest show per title. To change the city
-or filters, edit the `VIBEMAP_API` query string.
+The genre chips set the `tags=<genre>` value (see `sfApiUrl()` and `GENRES`), so each genre
+is its own SF-scoped query. The date toggle then filters by window relative to today
+(weekend = Fri–Sun; week = next 7 days), and recurring occurrences are collapsed to the
+soonest show per title. To add a genre, append to `GENRES`; to change the city/boundary,
+edit `sfApiUrl()`.
+
+> Note: the genre query intentionally omits the `sf-live` curation tag. With `sf-live`
+> unioned in, every genre returned the same curated set; plain `tags=<genre>` actually
+> filters (e.g. Comedy → stand-up/improv shows).
 
 ### Adding music samples
 
@@ -63,6 +70,5 @@ automatically instead of linking out to a Spotify search.
 
 - **Tidal** — swap the embed for Tidal's, or add a source toggle.
 - **Auto-locate** the user's city via geolocation.
-- **Genre filter** — the feed already carries categories/tags (music, dance, theater…).
-- **More cities** — point another `live` city at its own Vibemap feed.
+- **More cities** — point another `live` city at its own Vibemap boundary.
 - **"Queue"** multiple artists and crossfade between samples.

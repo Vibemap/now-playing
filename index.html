@@ -89,6 +89,24 @@
   }
   .theme-btn:hover { border-color: var(--accent); }
 
+  /* genre filter bar */
+  .genre-bar {
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 24px; border-bottom: 1px solid var(--line);
+    overflow-x: auto; scrollbar-width: thin;
+  }
+  .genre-bar .glabel {
+    flex: none; font-size: 11px; letter-spacing: 1px; text-transform: uppercase;
+    color: var(--muted); margin-right: 2px;
+  }
+  .chip {
+    flex: none; border: 1px solid var(--line); background: var(--panel);
+    color: var(--ink); padding: 6px 14px; border-radius: 999px;
+    font-size: 13px; font-weight: 600; cursor: pointer; transition: all .12s;
+  }
+  .chip:hover { border-color: var(--accent); }
+  .chip.active { background: var(--accent); border-color: var(--accent); color: #1a120e; }
+
   /* ---------- Layout ---------- */
   main {
     flex: 1; display: grid; grid-template-columns: 380px 1fr; gap: 0;
@@ -262,6 +280,8 @@
     </div>
   </header>
 
+  <nav class="genre-bar" id="genreBar"></nav>
+
   <main>
     <!-- ===================== PLAYER COLUMN ===================== -->
     <section class="player-col">
@@ -305,11 +325,11 @@
 <script>
 /* ============================================================
    DATA SOURCE
-   San Francisco pulls live music events from the Vibemap API
-   (GeoJSON FeatureCollection), filtered to the SF LIVE / Music set:
+   San Francisco pulls live events from the Vibemap API
+   (GeoJSON FeatureCollection), scoped to SF + the selected genre:
      https://api.vibemap.com/v0.3/search/events
-       ?tags__in=sf-live&boundary=san-francisco
-       &boundarySelectorLabel=Neighborhood&tags=Music
+       ?boundary=san-francisco&boundarySelectorLabel=Neighborhood
+       &tags=<genre>&page_size=200
    Each feature is normalized to:
    {
      id, artist, genre, venue, date (ISO), lat, lng,
@@ -319,12 +339,20 @@
    spotifyArtistId/spotifyTrackId in normalizeEvent() and the
    player will embed instead of linking out to search.
    ============================================================ */
-const VIBEMAP_API = "https://api.vibemap.com/v0.3/search/events" +
-  "?tags__in=sf-live&boundarySelectorLabel=Neighborhood&boundary=san-francisco" +
-  "&tags=Music&page_size=200";
+const GENRES = ["Music", "Comedy", "Dance", "Theater", "Nightlife"];
+let currentGenre = "Music";
+
+/* Vibemap search scoped to SF + a genre tag. We intentionally DON'T use the
+   sf-live curation tag here: with it unioned in, every genre returned the same
+   curated set, so the tag wouldn't actually filter. Plain tags=<genre> does. */
+function sfApiUrl(genre) {
+  return "https://api.vibemap.com/v0.3/search/events" +
+    "?boundarySelectorLabel=Neighborhood&boundary=san-francisco&page_size=200" +
+    "&tags=" + encodeURIComponent(genre);
+}
 
 const CITIES = {
-  sf: { name: "San Francisco", center: [37.7749, -122.4194], zoom: 13, live: true, api: VIBEMAP_API },
+  sf: { name: "San Francisco", center: [37.7749, -122.4194], zoom: 13, live: true },
   la: {
     name: "Los Angeles", center: [34.0522, -118.2437], zoom: 12, live: false,
     shows: [
@@ -381,7 +409,7 @@ async function loadShows(cityKey) {
   const city = CITIES[cityKey];
   if (!city.live) return city.shows;
   try {
-    const r = await fetch(city.api);
+    const r = await fetch(city.api || sfApiUrl(currentGenre));
     if (!r.ok) throw new Error("HTTP " + r.status);
     const j = await r.json();
     const features = (j.results && j.results.features) || [];
@@ -414,12 +442,31 @@ const els = {
   embedWrap: document.getElementById("embedWrap"),
   liveCount: document.getElementById("liveCount"),
   cityLabel: document.getElementById("cityLabel"),
+  genreBar: document.getElementById("genreBar"),
 };
 
 function initCities() {
   els.citySelect.innerHTML = Object.entries(CITIES)
     .map(([k, c]) => `<option value="${k}">${c.name}</option>`).join("");
   els.citySelect.value = currentCity;
+}
+
+function initGenres() {
+  els.genreBar.innerHTML = `<span class="glabel">Genre</span>` +
+    GENRES.map(g => `<button class="chip${g === currentGenre ? " active" : ""}" data-genre="${g}">${g}</button>`).join("");
+  els.genreBar.querySelectorAll(".chip").forEach(chip => {
+    chip.addEventListener("click", () => {
+      if (chip.dataset.genre === currentGenre) return;
+      currentGenre = chip.dataset.genre;
+      els.genreBar.querySelectorAll(".chip").forEach(c => c.classList.toggle("active", c === chip));
+      loadCity();   // re-query Vibemap for the selected genre
+    });
+  });
+}
+
+/* Genre filter only applies to live (API-backed) cities. */
+function syncGenreBar() {
+  els.genreBar.style.display = CITIES[currentCity].live ? "" : "none";
 }
 
 let tileLayer = null;
@@ -522,7 +569,9 @@ function renderMarkers() {
   markerLayer.clearLayers();
   const shows = visibleShows();
   els.liveCount.textContent = shows.length;
-  els.cityLabel.textContent = `${CITIES[currentCity].name} · ${currentWhen === "weekend" ? "this weekend" : "this week"}`;
+  const when = currentWhen === "weekend" ? "this weekend" : "this week";
+  const genre = CITIES[currentCity].live ? ` · ${currentGenre}` : "";
+  els.cityLabel.textContent = `${CITIES[currentCity].name}${genre} · ${when}`;
 
   shows.forEach(s => {
     const icon = L.divIcon({
@@ -598,7 +647,7 @@ async function loadCity() {
 }
 
 function initEvents() {
-  els.citySelect.addEventListener("change", e => { currentCity = e.target.value; loadCity(); });
+  els.citySelect.addEventListener("change", e => { currentCity = e.target.value; syncGenreBar(); loadCity(); });
   document.getElementById("themeToggle").addEventListener("click", () => {
     const isDark = document.documentElement.getAttribute("data-theme") === "dark";
     setTheme(isDark ? "light" : "dark");
@@ -617,6 +666,8 @@ function initEvents() {
 /* boot */
 const savedTheme = (() => { try { return localStorage.getItem("pn-theme"); } catch (e) { return null; } })() || "light";
 initCities();
+initGenres();
+syncGenreBar();
 initMap();
 setTheme(savedTheme);   // default light; restores last choice
 initDrop();
