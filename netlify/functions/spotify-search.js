@@ -63,6 +63,21 @@ async function searchOne(token, q) {
   };
 }
 
+/* An artist's top tracks (public catalog) — used to randomize / flip songs. */
+async function getTopTracks(token, artistId) {
+  try {
+    const r = await fetch(
+      "https://api.spotify.com/v1/artists/" + artistId + "/top-tracks?market=US",
+      { headers: { Authorization: "Bearer " + token } }
+    );
+    if (!r.ok) return [];
+    const j = await r.json();
+    return (j.tracks || []).slice(0, 10).map((t) => ({ id: t.id, name: t.name }));
+  } catch (e) {
+    return [];
+  }
+}
+
 exports.handler = async (event) => {
   const headers = {
     "Content-Type": "application/json",
@@ -81,7 +96,10 @@ exports.handler = async (event) => {
     const token = await getToken(id, secret);
     for (const cand of candidates(q)) {
       const hit = await searchOne(token, cand);
-      if (hit) return { statusCode: 200, headers, body: JSON.stringify(hit) };
+      if (hit) {
+        if (hit.artistId) hit.topTracks = await getTopTracks(token, hit.artistId);
+        return { statusCode: 200, headers, body: JSON.stringify(hit) };
+      }
     }
     return { statusCode: 200, headers, body: JSON.stringify({ ok: true, artistId: null, trackId: null }) };
   } catch (e) {

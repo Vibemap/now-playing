@@ -153,6 +153,11 @@
   }
   .pp-btn:hover { transform: scale(1.06); }
   .pp-btn:active { transform: scale(.96); }
+  .pp-skip {
+    width: 26px; height: 26px; font-size: 12px; visibility: hidden;
+    background: var(--panel-2); color: var(--ink); border: 1px solid var(--line);
+  }
+  .pp-skip:hover { border-color: var(--accent); color: var(--accent); }
   .viz { display: flex; align-items: flex-end; gap: 3px; height: 22px; }
   .viz span { width: 4px; height: 20%; background: var(--muted); border-radius: 2px; transform-origin: bottom; }
   body.is-playing .viz span { background: var(--accent); animation: viz .9s ease-in-out infinite alternate; }
@@ -394,6 +399,8 @@
   .now-playing { display: flex; flex-direction: column; gap: 6px; }
   .now-playing .np-artist { font-size: 17px; font-weight: 800; }
   .now-playing .np-meta { font-size: 13px; color: var(--muted); }
+  .now-playing .np-song { font-size: 13px; font-weight: 700; color: var(--accent); }
+  .now-playing .np-song:empty { display: none; }
   .np-empty { color: var(--muted); font-size: 13px; }
   .np-link {
     align-self: flex-start; font-size: 12px; font-weight: 700; color: var(--accent);
@@ -498,6 +505,7 @@
         </div>
         <div class="transport">
           <button class="pp-btn" id="playPauseBtn" aria-label="Play or pause">▶</button>
+          <button class="pp-btn pp-skip" id="nextSongBtn" aria-label="Next song by this artist" title="Next song by this artist">⏭</button>
           <div class="viz" id="viz" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
         </div>
         <div class="player-frame">
@@ -702,6 +710,7 @@ async function loadShows(cityKey) {
    ============================================================ */
 let map, markerLayer, currentWhen = "weekend", currentCity = "sf", allShows = [];
 let currentShowId = null, autoplayOn = false, shuffleOn = false, trackEndHandled = false;
+let songState = null;   // { list: [{id,name}], idx } — an artist's tracks, for randomize/skip
 
 const els = {
   citySelect: document.getElementById("citySelect"),
@@ -719,6 +728,7 @@ const els = {
   shuffleBtn: document.getElementById("shuffleBtn"),
   autoplayBtn: document.getElementById("autoplayBtn"),
   playPauseBtn: document.getElementById("playPauseBtn"),
+  nextSongBtn: document.getElementById("nextSongBtn"),
   prevVenue: document.getElementById("prevVenue"),
   nextVenue: document.getElementById("nextVenue"),
   liveCount: document.getElementById("liveCount"),
@@ -897,36 +907,42 @@ let spotifyController = null;
 const SP = window.__spotify || { api: null, pendingUri: null };
 SP.onReady = (api) => { if (SP.pendingUri) { const u = SP.pendingUri; SP.pendingUri = null; startSpotify(u); } };
 
+let controllerCreating = false;
 function startSpotify(uri) {
   els.spotifyEmbed.style.display = "";
   els.embedMsg.style.display = "none";
-  if (spotifyController) {
+  if (spotifyController) {                      // controller ready → just swap the track
     spotifyController.loadUri(uri);
-    spotifyController.play();                 // already-built controller → just play
-  } else if (SP.api) {
-    SP.api.createController(
-      document.getElementById("spotifyMount"),
-      { width: "100%", height: 152, uri },
-      (controller) => {
-        spotifyController = controller;
-        SP.controller = controller;
-        controller.addListener("playback_update", (e) => {
-          const d = (e && e.data) || {};
-          // reflect real playback state in the UI (icon, spin, visualizer)
-          setPlaybackUI(!d.isPaused);
-          // auto-advance when a track finishes (if Autoplay is on)
-          if (autoplayOn && d.duration > 0 && d.position >= d.duration - 800 && !trackEndHandled) {
-            trackEndHandled = true;
-            advanceNext();
-          }
-        });
-        controller.play();
-      }
-    );
-  } else {
-    SP.pendingUri = uri;                       // API still loading → play when ready
-    showEmbedMsg("Loading player…");
+    spotifyController.play();
+    return;
   }
+  if (controllerCreating || !SP.api) {          // still initializing (or API not loaded) → queue
+    SP.pendingUri = uri;
+    if (!SP.api) showEmbedMsg("Loading player…");
+    return;
+  }
+  const mount = document.getElementById("spotifyMount");
+  if (!mount) { SP.pendingUri = uri; return; }
+  controllerCreating = true;
+  SP.api.createController(
+    mount,
+    { width: "100%", height: 152, uri },
+    (controller) => {
+      spotifyController = controller;
+      SP.controller = controller;
+      controllerCreating = false;
+      controller.addListener("playback_update", (e) => {
+        const d = (e && e.data) || {};
+        setPlaybackUI(!d.isPaused);             // icon, spin, visualizer from real state
+        if (autoplayOn && d.duration > 0 && d.position >= d.duration - 800 && !trackEndHandled) {
+          trackEndHandled = true;
+          advanceNext();                        // auto-advance to next venue when a track ends
+        }
+      });
+      if (SP.pendingUri) { const u = SP.pendingUri; SP.pendingUri = null; controller.loadUri(u); }
+      controller.play();
+    }
+  );
 }
 
 function showEmbedMsg(html) {
@@ -966,26 +982,56 @@ async function play(id) {
     ? `<a class="np-link" href="${s.url}" target="_blank" rel="noopener">View on SF LIVE ↗</a>` : "";
   els.nowPlaying.innerHTML = `
     <div class="np-artist">${s.artist}</div>
+    <div class="np-song" id="npSong"></div>
     <div class="np-meta">${s.genre} · ${s.venue} · ${fmtWhen(s.date)}</div>
     ${sflink}`;
   els.embedWrap.style.display = "block";
+  songState = null;
+  els.nextSongBtn.style.visibility = "hidden";
 
-  const uriFor = (kind, id) => `spotify:${kind}:${id}`;
   // 1. Pre-linked id wins (e.g. mock/curated data).
-  if (s.spotifyTrackId) { startSpotify(uriFor("track", s.spotifyTrackId)); }
-  else if (s.spotifyArtistId) { startSpotify(uriFor("artist", s.spotifyArtistId)); }
+  if (s.spotifyTrackId) { songState = { list: [{ id: s.spotifyTrackId, name: "" }], idx: 0 }; playCurrentSong(); }
+  else if (s.spotifyArtistId) { startSpotify(`spotify:artist:${s.spotifyArtistId}`); }
   else {
-    // 2. Ask the function to match this name on Spotify.
+    // 2. Ask the function to match this name on Spotify, then randomize a track.
     showEmbedMsg(`Finding “${s.artist}” on Spotify…`);
     const found = await resolveSpotify(s.artist);
     if (els.labelText.textContent !== s.artist) return; // a newer pick superseded this one
-    if (found && found.trackId) startSpotify(uriFor("track", found.trackId));
-    else if (found && found.artistId) startSpotify(uriFor("artist", found.artistId));
-    else { setPlaybackUI(false); showEmbedMsg(`Couldn't auto-match a track — <a href="https://open.spotify.com/search/${encodeURIComponent(s.artist)}" target="_blank" rel="noopener">search “${s.artist}” on Spotify ↗</a>`); }
+    if (found && found.topTracks && found.topTracks.length) {
+      songState = { list: found.topTracks, idx: Math.floor(Math.random() * found.topTracks.length) };
+      playCurrentSong();                              // random song each time you drop the act
+    } else if (found && found.trackId) {
+      songState = { list: [{ id: found.trackId, name: found.trackName || "" }], idx: 0 };
+      playCurrentSong();
+    } else if (found && found.artistId) {
+      startSpotify(`spotify:artist:${found.artistId}`);
+    } else {
+      setPlaybackUI(false);
+      showEmbedMsg(`Couldn't auto-match a track — <a href="https://open.spotify.com/search/${encodeURIComponent(s.artist)}" target="_blank" rel="noopener">search “${s.artist}” on Spotify ↗</a>`);
+    }
   }
 
   // highlight on map
   map.flyTo([s.lat, s.lng], 15, { duration: 0.8 });
+}
+
+/* Play the current song in songState; flip with the ⏭ button. */
+function playCurrentSong() {
+  if (!songState || !songState.list.length) return;
+  const t = songState.list[songState.idx];
+  trackEndHandled = false;
+  startSpotify(`spotify:track:${t.id}`);
+  setSongLabel(t.name);
+  els.nextSongBtn.style.visibility = songState.list.length > 1 ? "visible" : "hidden";
+}
+function setSongLabel(name) {
+  const el = document.getElementById("npSong");
+  if (el) el.textContent = name ? "♪ " + name : "";
+}
+function nextSong() {
+  if (!songState || songState.list.length < 2) return;
+  songState.idx = (songState.idx + 1) % songState.list.length;
+  playCurrentSong();
 }
 
 function highlightCrate(id) {
@@ -1049,6 +1095,7 @@ function initPlaybackControls() {
   });
   els.prevVenue.addEventListener("click", () => stepShow(-1));
   els.nextVenue.addEventListener("click", () => stepShow(1));
+  els.nextSongBtn.addEventListener("click", nextSong);
 }
 
 function initDrop() {
