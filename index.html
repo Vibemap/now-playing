@@ -592,7 +592,36 @@ function renderMarkers() {
   });
 }
 
-function play(id) {
+function embedSpotify(kind, id) {
+  els.embedWrap.innerHTML =
+    `<iframe src="https://open.spotify.com/embed/${kind}/${id}?utm_source=nowplaying" height="152" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy"></iframe>`;
+}
+
+function searchFallback(artist) {
+  const q = encodeURIComponent(artist);
+  els.embedWrap.innerHTML =
+    `<div class="np-fallback">
+       <span>Couldn't auto-match a track —</span>
+       <a href="https://open.spotify.com/search/${q}" target="_blank" rel="noopener">search “${artist}” on Spotify ↗</a>
+     </div>`;
+}
+
+/* Resolve an artist/event name → Spotify ids via the Netlify function.
+   Cached per name; returns null on any failure so the UI degrades gracefully. */
+const spotifyCache = new Map();
+async function resolveSpotify(name) {
+  if (spotifyCache.has(name)) return spotifyCache.get(name);
+  let result = null;
+  try {
+    const r = await fetch("/.netlify/functions/spotify-search?q=" + encodeURIComponent(name));
+    const j = await r.json();
+    if (j && j.ok && (j.trackId || j.artistId)) result = j;
+  } catch (e) { /* function not deployed / offline → fall back */ }
+  spotifyCache.set(name, result);
+  return result;
+}
+
+async function play(id) {
   const s = allShows.find(x => String(x.id) === String(id));
   if (!s) return;
 
@@ -605,21 +634,19 @@ function play(id) {
     <div class="np-artist">${s.artist}</div>
     <div class="np-meta">${s.genre} · ${s.venue} · ${fmtWhen(s.date)}</div>
     ${sflink}`;
-
-  // If the show has a linked Spotify id, embed it; otherwise offer a search.
-  // (SF LIVE events have no music id yet — wire it in normalizeSfEvent().)
   els.embedWrap.style.display = "block";
-  if (s.spotifyTrackId || s.spotifyArtistId) {
-    const path = s.spotifyTrackId ? `track/${s.spotifyTrackId}` : `artist/${s.spotifyArtistId}`;
-    els.embedWrap.innerHTML =
-      `<iframe src="https://open.spotify.com/embed/${path}?utm_source=nowplaying" height="152" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy"></iframe>`;
-  } else {
-    const q = encodeURIComponent(s.artist);
-    els.embedWrap.innerHTML =
-      `<div class="np-fallback">
-         <span>No linked track yet —</span>
-         <a href="https://open.spotify.com/search/${q}" target="_blank" rel="noopener">search “${s.artist}” on Spotify ↗</a>
-       </div>`;
+
+  // 1. Pre-linked id wins (e.g. mock/curated data).
+  if (s.spotifyTrackId) { embedSpotify("track", s.spotifyTrackId); }
+  else if (s.spotifyArtistId) { embedSpotify("artist", s.spotifyArtistId); }
+  else {
+    // 2. Ask the function to match this name on Spotify.
+    els.embedWrap.innerHTML = `<div class="np-fallback">Finding “${s.artist}” on Spotify…</div>`;
+    const found = await resolveSpotify(s.artist);
+    if (els.labelText.textContent !== s.artist) return; // a newer pick superseded this one
+    if (found && found.trackId) embedSpotify("track", found.trackId);
+    else if (found && found.artistId) embedSpotify("artist", found.artistId);
+    else searchFallback(s.artist);
   }
 
   // highlight on map

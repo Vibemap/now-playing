@@ -6,15 +6,38 @@ onto the platter (or click them, or click a map pin) to hear a Spotify sample.
 
 ## Run it
 
-It's a single self-contained `index.html` — no build step.
+The UI is a single `index.html`, but audio resolution uses a Netlify function, so run it
+with the Netlify CLI to get the function locally:
 
 ```bash
-# any static server works, e.g.
-npx serve .
-# then open http://localhost:3000
+npx netlify dev      # serves index.html + functions on http://localhost:5599
 ```
 
-(Spotify embeds need to load over http/https, not `file://`.)
+Without Spotify credentials the player still works — it just shows a "search on Spotify"
+link instead of an embedded track. For UI-only work, any static server is fine
+(`npx serve .`), but the `/.netlify/functions/*` calls will 404 and fall back.
+
+## Connect Spotify (for real audio)
+
+The Vibemap feed has no Spotify ids, so a small Netlify function
+([netlify/functions/spotify-search.js](netlify/functions/spotify-search.js)) matches each
+artist/event name to a Spotify track via the **Client Credentials** flow and returns the id;
+the player then embeds it. The client secret stays server-side.
+
+1. Create an app at <https://developer.spotify.com/dashboard> → copy the **Client ID** and
+   **Client Secret**. (No redirect URI needed — Client Credentials doesn't use one.)
+2. Provide the credentials:
+   - **Local:** `cp .env.example .env` and fill in the two values (`netlify dev` loads `.env`).
+   - **Production:** Netlify → Site settings → Environment variables, or
+     `netlify env:set SPOTIFY_CLIENT_ID …` / `SPOTIFY_CLIENT_SECRET …`.
+3. `npx netlify dev` and drop an artist on the platter — it resolves and plays.
+
+Resolved lookups are cached (per name in the browser, and a day at the CDN). Many tracks
+play a 30s preview; full playback happens for listeners already signed into Spotify.
+
+> Heads up: event titles are messy (e.g. "Live Music at The Grove - Ian Santillano"), so the
+> function tries the full name then the part after a dash. Matching won't be perfect; when it
+> can't find a confident match it falls back to a Spotify search link.
 
 ## What's wired up
 
@@ -27,8 +50,9 @@ npx serve .
   map pin → "Listen on the player".
 - **Jump off to SF LIVE** — every show links out to its `sflive.art` event page (the
   "View on SF LIVE ↗" link in the player and "Details on SF LIVE ↗" in map popups).
-- **Spotify** — embeds a preview when a show has a linked Spotify id; otherwise offers a
-  "search on Spotify" link (the feed has no music ids yet — see below).
+- **Spotify** — a Netlify function matches each artist/event name to a Spotify track and the
+  player embeds it (see "Connect Spotify" above). Falls back to a search link when there's no
+  confident match or no credentials.
 - **Genre filter** — chips (Music · Comedy · Dance · Theater · Nightlife) re-query the
   Vibemap API per genre; defaults to Music. Hidden for non-live (mock) cities.
 - **Light / dark toggle** + **This weekend / This week** date filter.
@@ -60,15 +84,19 @@ edit `sfApiUrl()`.
 > unioned in, every genre returned the same curated set; plain `tags=<genre>` actually
 > filters (e.g. Comedy → stand-up/improv shows).
 
-### Adding music samples
+### Audio resolution path
 
-The feed has no Spotify/Tidal ids today. When that data exists, set `spotifyArtistId`
-(or `spotifyTrackId`) inside `normalizeEvent()` and the player will embed the preview
-automatically instead of linking out to a Spotify search.
+When a show is played, `play()` checks for a pre-set `spotifyTrackId`/`spotifyArtistId`
+first; otherwise it calls `resolveSpotify(name)` → the Netlify function → embed. If Vibemap
+ever adds Spotify ids directly to events, set them in `normalizeEvent()` and the function
+call is skipped entirely.
 
 ## Ideas to take it further
 
-- **Tidal** — swap the embed for Tidal's, or add a source toggle.
+- **Full playback** — swap the embed for the Spotify Web Playback SDK (Premium, requires user
+  login via PKCE) for in-page full tracks instead of 30s previews.
+- **Better matching** — store the resolved Spotify id back on the event, or have the function
+  use venue/date hints to disambiguate.
+- **Tidal** — add a source toggle alongside Spotify.
 - **Auto-locate** the user's city via geolocation.
 - **More cities** — point another `live` city at its own Vibemap boundary.
-- **"Queue"** multiple artists and crossfade between samples.
