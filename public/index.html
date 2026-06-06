@@ -186,13 +186,13 @@
   .seg-sm.ph-seg button { padding: 5px 11px; font-size: 12px; }
 
   .crate-list {
-    display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
     gap: 9px; overflow-y: auto; margin-top: 10px; padding: 2px; align-content: start;
   }
 
   /* jukebox selection strips */
   .crate-list .card {
-    display: grid; grid-template-columns: 38px 1fr auto; align-items: center; gap: 10px;
+    display: grid; grid-template-columns: 34px 40px 1fr auto; align-items: center; gap: 9px;
     background: linear-gradient(var(--cassette-label, #faf4ea), #f1e7d4);
     border: 1px solid var(--line); border-radius: 6px; padding: 7px 11px 7px 7px;
     cursor: grab; transition: transform .1s, box-shadow .12s, border-color .12s;
@@ -204,10 +204,16 @@
   .crate-list .card.dragging { opacity: .4; }
   .crate-list .card.playing { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
   .sel-code {
-    width: 38px; height: 38px; border-radius: 4px; flex: none;
+    width: 34px; height: 40px; border-radius: 4px; flex: none;
     background: linear-gradient(160deg, var(--accent), #b94a28); color: #fff;
-    font-family: "Helvetica Neue", Arial, sans-serif; font-weight: 800; font-size: 14px; letter-spacing: .5px;
+    font-family: "Helvetica Neue", Arial, sans-serif; font-weight: 800; font-size: 13px; letter-spacing: .5px;
     display: grid; place-items: center; box-shadow: inset 0 0 0 2px rgba(255,255,255,.14);
+  }
+  .card-thumb {
+    width: 40px; height: 40px; border-radius: 4px; flex: none; overflow: hidden;
+    background: var(--panel-2) center/cover no-repeat;
+    display: grid; place-items: center; font-family: Arial, sans-serif; font-weight: 800;
+    font-size: 12px; color: var(--accent-2);
   }
   .crate-list .card .info { min-width: 0; }
   .crate-list .card .name {
@@ -824,6 +830,7 @@ function renderCrate() {
     return `
     <div class="card" draggable="true" data-id="${s.id}" title="Drag up to the player">
       <div class="sel-code">${code}</div>
+      <div class="card-thumb"${s.image ? ` style="background-image:url('${s.image}')"` : ""}>${s.image ? "" : initials(s.artist)}</div>
       <div class="info">
         <div class="name">${s.artist}</div>
         <div class="sub">${s.venue} · ${fmtWhen(s.date)}</div>
