@@ -187,6 +187,12 @@
   .playlist-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
   .ph-left { min-width: 0; }
   .playlist-head h3 { margin: 0 0 4px; font-size: 12px; letter-spacing: 1px; color: var(--muted); text-transform: uppercase; }
+  .rack-tip {
+    font-size: 12.5px; color: var(--muted); margin-bottom: 4px;
+    display: inline-flex; align-items: center; gap: 5px;
+    background: var(--panel-2); border: 1px dashed var(--line); border-radius: 999px; padding: 4px 12px;
+  }
+  .rack-tip b { color: var(--accent); }
   .ph-controls { display: flex; align-items: center; gap: 8px; flex: none; flex-wrap: wrap; justify-content: flex-end; }
   .ctrl-btn {
     border: 1px solid var(--line); background: var(--panel-2); color: var(--ink);
@@ -205,7 +211,7 @@
 
   /* jukebox selection strips */
   .crate-list .card {
-    display: grid; grid-template-columns: 34px 40px 1fr auto; align-items: center; gap: 9px;
+    display: grid; grid-template-columns: 34px 40px 1fr 30px; align-items: center; gap: 9px;
     background: linear-gradient(var(--cassette-label, #faf4ea), #f1e7d4);
     border: 1px solid var(--line); border-radius: 6px; padding: 7px 11px 7px 7px;
     cursor: grab; transition: transform .1s, box-shadow .12s, border-color .12s;
@@ -241,6 +247,13 @@
     font-family: Arial, sans-serif; font-size: 9px; font-weight: 800; letter-spacing: .5px;
     text-transform: uppercase; color: var(--accent-2); align-self: center; white-space: nowrap;
   }
+  .card-play {
+    width: 30px; height: 30px; border-radius: 50%; border: 0; cursor: pointer; flex: none;
+    background: var(--accent); color: #1a120e; font-size: 11px; display: grid; place-items: center;
+    transition: transform .1s, filter .1s; padding-left: 1px;
+  }
+  .card-play:hover { transform: scale(1.1); filter: brightness(1.08); }
+  .card-play:active { transform: scale(.95); }
 
   /* stage holds both players; only the active mode is shown */
   .player-stage { position: relative; }
@@ -574,8 +587,9 @@
       <div class="playlist-head">
         <div class="ph-left">
           <h3 id="crateTitle">Playing this weekend</h3>
+          <div class="rack-tip">💿 Drag a record up to the player — or tap <b>▶</b> on any show — to listen</div>
           <div class="now-playing" id="nowPlaying">
-            <div class="np-empty">Nothing on the platter yet — pick someone playing tonight.</div>
+            <div class="np-empty">Nothing on the platter yet — pick a show to start the record.</div>
           </div>
         </div>
         <div class="ph-controls">
@@ -851,14 +865,14 @@ function renderCrate() {
     const n = i % 10;                                   // jukebox selection code: A1..A9, A0, B1…
     const code = String.fromCharCode(65 + (Math.floor(i / 10) % 18)) + (n === 9 ? "0" : n + 1);
     return `
-    <div class="card" draggable="true" data-id="${s.id}" title="Drag up to the player">
+    <div class="card" draggable="true" data-id="${s.id}" title="Drag up to the player, or tap ▶">
       <div class="sel-code">${code}</div>
       <div class="card-thumb"${s.image ? ` style="background-image:url('${s.image}')"` : ""}>${s.image ? "" : initials(s.artist)}</div>
       <div class="info">
         <div class="name">${s.artist}</div>
         <div class="sub">${s.venue} · ${fmtWhen(s.date)}</div>
       </div>
-      <span class="card-genre">${s.genre}</span>
+      <button class="card-play" data-id="${s.id}" aria-label="Play ${s.artist}" title="Play on the player">▶</button>
     </div>`;
   }).join("");
 
