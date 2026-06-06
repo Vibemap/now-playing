@@ -123,7 +123,7 @@
     z-index: 600; pointer-events: none; width: max-content;
   }
   .stage > * { pointer-events: auto; }
-  .loc-nav { display: flex; align-items: center; gap: 6px; }
+  .loc-nav { display: flex; align-items: center; gap: 6px; margin-bottom: 18px; }
   .loc-arrow {
     width: 26px; height: 26px; border-radius: 50%; flex: none; cursor: pointer;
     border: 1px solid var(--line); background: var(--overlay-bg); color: var(--ink);
@@ -479,6 +479,30 @@
     background: var(--accent); color: #1a120e; font-weight: 800; font-size: 13px;
   }
   .leaflet-bar a { background: var(--panel-2); color: var(--ink); border-color: var(--line); }
+
+  /* ===================== Mobile ===================== */
+  @media (max-width: 680px) {
+    header { padding: 12px 16px; gap: 10px; }
+    .brand .tag { display: none; }
+    .controls { width: 100%; margin-left: 0; gap: 8px; }
+    .controls select { flex: 1 1 auto; }
+    .genre-bar, .now-bar { padding-left: 16px; padding-right: 16px; }
+
+    /* player sits at the bottom of the map (no straddle/overlap on small screens) */
+    .player-frame { width: 176px; height: 176px; margin-bottom: 0; }
+    .player-frame:has(.mode-cassette) { height: 117px; margin-bottom: 0; }
+    .player-frame .player-stage { width: 320px; transform: scale(0.55); }
+    .loc-nav { margin-bottom: 10px; }
+    .map-col { flex: 0 0 auto; height: 46vh; min-height: 260px; }
+
+    /* rack header stacks so text gets full width (no more 1-word-per-line) */
+    .playlist { flex: 1 1 auto; padding: 12px 16px 16px; }
+    .playlist-head { flex-direction: column; align-items: stretch; gap: 8px; }
+    .ph-controls { justify-content: flex-start; flex-wrap: wrap; }
+    .rack-tip { align-self: flex-start; max-width: 100%; }
+    .crate-list { grid-template-columns: 1fr; }
+    .embed-wrap { left: 14px; right: 14px; width: auto; }
+  }
 </style>
 </head>
 <body>
