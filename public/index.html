@@ -118,13 +118,13 @@
     display: flex; gap: 20px; padding: 16px 22px; align-items: flex-start;
     border-bottom: 1px solid var(--line); background: var(--panel);
   }
-  /* compact player + location above it */
-  .np-player { flex: none; width: 150px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+  /* compact player with the location centered above it */
+  .np-player { flex: none; width: 188px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
   .np-loc {
-    font-size: 13px; font-weight: 800; letter-spacing: .3px; color: var(--ink);
-    display: flex; align-items: center; gap: 4px; text-align: center; line-height: 1.2;
+    width: 100%; font-size: 13px; font-weight: 800; letter-spacing: .3px; color: var(--ink);
+    text-align: center; line-height: 1.2;
   }
-  .np-loc::before { content: "📍"; }
+  .np-loc::before { content: "📍 "; }
 
   /* render the players at a clean base size, scaled down to fit the bar */
   .player-frame { position: relative; width: 150px; height: 150px; flex: none; }
@@ -135,18 +135,17 @@
   }
   .seg-sm button { padding: 4px 10px; font-size: 12px; }
 
-  /* now playing + controls + visualizer */
-  .np-info { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 10px; }
-  .np-controls { display: flex; align-items: center; gap: 8px; }
-  .ctrl-btn {
-    border: 1px solid var(--line); background: var(--panel-2); color: var(--ink);
-    border-radius: 999px; padding: 6px 13px; font-size: 13px; font-weight: 700; cursor: pointer;
-    display: inline-flex; align-items: center; gap: 5px; transition: all .12s;
+  /* transport: play/pause + visualizer, centered under the player */
+  .transport { display: flex; align-items: center; justify-content: center; gap: 12px; height: 28px; }
+  .pp-btn {
+    width: 34px; height: 34px; border-radius: 50%; border: 0; cursor: pointer;
+    background: var(--accent); color: #1a120e; font-size: 14px; line-height: 1;
+    display: grid; place-items: center; flex: none; box-shadow: 0 2px 8px rgba(0,0,0,.25);
+    transition: transform .1s;
   }
-  .ctrl-btn:hover { border-color: var(--accent); }
-  .ctrl-btn.active { background: var(--accent); border-color: var(--accent); color: #1a120e; }
-
-  .viz { display: flex; align-items: flex-end; gap: 3px; height: 22px; margin-left: auto; }
+  .pp-btn:hover { transform: scale(1.06); }
+  .pp-btn:active { transform: scale(.96); }
+  .viz { display: flex; align-items: flex-end; gap: 3px; height: 24px; }
   .viz span { width: 4px; height: 20%; background: var(--muted); border-radius: 2px; transform-origin: bottom; }
   body.is-playing .viz span { background: var(--accent); animation: viz .9s ease-in-out infinite alternate; }
   .viz span:nth-child(1){ animation-delay: 0s;   animation-duration: .70s }
@@ -158,13 +157,26 @@
   .viz span:nth-child(7){ animation-delay: -.1s; animation-duration: .85s }
   @keyframes viz { from { height: 18%; } to { height: 100%; } }
 
-  /* crate as a compact side list */
-  .crate { flex: none; width: 290px; max-height: 300px; overflow-y: auto; }
+  /* now playing + shuffle/autoplay */
+  .np-info { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 10px; }
+  .np-controls { display: flex; align-items: center; gap: 8px; }
+  .ctrl-btn {
+    border: 1px solid var(--line); background: var(--panel-2); color: var(--ink);
+    border-radius: 999px; padding: 6px 13px; font-size: 13px; font-weight: 700; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 5px; transition: all .12s;
+  }
+  .ctrl-btn:hover { border-color: var(--accent); }
+  .ctrl-btn.active { background: var(--accent); border-color: var(--accent); color: #1a120e; }
+
+  /* crate: full-width strip below the player → room for many artists */
+  .crate-strip { padding: 12px 22px; border-bottom: 1px solid var(--line); background: var(--panel); }
+  .crate-strip h3 { margin: 0 0 8px; font-size: 12px; letter-spacing: 1px; color: var(--muted); text-transform: uppercase; }
+  .crate-strip .crate-list { flex-direction: row; gap: 10px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: thin; }
+  .crate-strip .card { width: 210px; flex: none; }
 
   @media (max-width: 900px) {
     .now-bar { flex-direction: column; align-items: stretch; }
-    .np-player { width: auto; }
-    .crate { width: auto; max-height: 190px; }
+    .np-player { width: 100%; }
   }
 
   /* stage holds both players; only the active mode is shown */
@@ -491,6 +503,10 @@
         </div>
       </div>
         </div><!-- /player-frame -->
+        <div class="transport">
+          <button class="pp-btn" id="playPauseBtn" aria-label="Play or pause">▶</button>
+          <div class="viz" id="viz" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+        </div>
         <div class="seg seg-sm" id="playerToggle">
           <button data-player="vinyl">Vinyl</button>
           <button data-player="cassette" class="active">Cassette</button>
@@ -502,7 +518,6 @@
         <div class="np-controls">
           <button class="ctrl-btn" id="shuffleBtn" aria-pressed="false" title="Shuffle: play a random show">🔀 Shuffle</button>
           <button class="ctrl-btn" id="autoplayBtn" aria-pressed="false" title="Autoplay: roll into the next show">↻ Autoplay</button>
-          <div class="viz" id="viz" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
         </div>
         <div class="now-playing" id="nowPlaying">
           <div class="np-empty">Nothing on the platter yet — pick someone playing tonight.</div>
@@ -512,15 +527,15 @@
           <div id="embedMsg" class="np-fallback" style="display:none"></div>
         </div>
       </div>
-
-      <!-- crate -->
-      <div class="crate">
-        <h3 id="crateTitle">Playing this weekend</h3>
-        <div class="crate-list" id="crateList"></div>
-      </div>
     </section>
 
-    <!-- ===================== MAP COLUMN ===================== -->
+    <!-- ===================== CRATE (drag artists up to the player) ===================== -->
+    <section class="crate-strip">
+      <h3 id="crateTitle">Playing this weekend</h3>
+      <div class="crate-list" id="crateList"></div>
+    </section>
+
+    <!-- ===================== MAP ===================== -->
     <section class="map-col">
       <div id="map"></div>
       <div class="map-overlay">
@@ -664,6 +679,7 @@ const els = {
   embedMsg: document.getElementById("embedMsg"),
   shuffleBtn: document.getElementById("shuffleBtn"),
   autoplayBtn: document.getElementById("autoplayBtn"),
+  playPauseBtn: document.getElementById("playPauseBtn"),
   liveCount: document.getElementById("liveCount"),
   cityLabel: document.getElementById("cityLabel"),
   genreBar: document.getElementById("genreBar"),
@@ -851,9 +867,11 @@ function startSpotify(uri) {
       (controller) => {
         spotifyController = controller;
         SP.controller = controller;
-        // auto-advance when a track finishes (if Autoplay is on)
         controller.addListener("playback_update", (e) => {
           const d = (e && e.data) || {};
+          // reflect real playback state in the UI (icon, spin, visualizer)
+          setPlaybackUI(!d.isPaused);
+          // auto-advance when a track finishes (if Autoplay is on)
           if (autoplayOn && d.duration > 0 && d.position >= d.duration - 800 && !trackEndHandled) {
             trackEndHandled = true;
             advanceNext();
@@ -895,8 +913,7 @@ async function play(id) {
 
   currentShowId = s.id;
   trackEndHandled = false;
-  els.playerStage.classList.add("playing");
-  document.body.classList.add("is-playing");      // drives the vibe visualizer
+  setPlaybackUI(true);                             // optimistic; listener corrects from real state
   document.querySelectorAll(".label-text").forEach(el => el.textContent = s.artist);
   highlightCrate(s.id);
 
@@ -919,7 +936,7 @@ async function play(id) {
     if (els.labelText.textContent !== s.artist) return; // a newer pick superseded this one
     if (found && found.trackId) startSpotify(uriFor("track", found.trackId));
     else if (found && found.artistId) startSpotify(uriFor("artist", found.artistId));
-    else showEmbedMsg(`Couldn't auto-match a track — <a href="https://open.spotify.com/search/${encodeURIComponent(s.artist)}" target="_blank" rel="noopener">search “${s.artist}” on Spotify ↗</a>`);
+    else { setPlaybackUI(false); showEmbedMsg(`Couldn't auto-match a track — <a href="https://open.spotify.com/search/${encodeURIComponent(s.artist)}" target="_blank" rel="noopener">search “${s.artist}” on Spotify ↗</a>`); }
   }
 
   // highlight on map
@@ -929,6 +946,13 @@ async function play(id) {
 function highlightCrate(id) {
   els.crateList.querySelectorAll(".card").forEach(c =>
     c.classList.toggle("playing", String(c.dataset.id) === String(id)));
+}
+
+/* Reflect play/pause state across the player, visualizer, and button. */
+function setPlaybackUI(playing) {
+  els.playerStage.classList.toggle("playing", playing);
+  document.body.classList.toggle("is-playing", playing);
+  els.playPauseBtn.textContent = playing ? "⏸" : "▶";
 }
 
 /* ---------- Shuffle & Autoplay ---------- */
@@ -964,6 +988,10 @@ function initPlaybackControls() {
     els.autoplayBtn.classList.toggle("active", autoplayOn);
     els.autoplayBtn.setAttribute("aria-pressed", autoplayOn);
     if (autoplayOn && currentShowId == null) { const id = pickNextId(); if (id != null) play(id); }
+  });
+  els.playPauseBtn.addEventListener("click", () => {
+    if (spotifyController) spotifyController.togglePlay();           // pause/resume current
+    else { const id = currentShowId != null ? currentShowId : pickNextId(); if (id != null) play(id); }
   });
 }
 
