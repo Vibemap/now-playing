@@ -305,22 +305,26 @@
 <script>
 /* ============================================================
    DATA SOURCE
-   San Francisco pulls live from the Vibemap / SF LIVE feed:
-     https://sflive.art/wp-json/vibemap/v1/events-data
-   Each show is normalized to:
+   San Francisco pulls live music events from the Vibemap API
+   (GeoJSON FeatureCollection), filtered to the SF LIVE / Music set:
+     https://api.vibemap.com/v0.3/search/events
+       ?tags__in=sf-live&boundary=san-francisco
+       &boundarySelectorLabel=Neighborhood&tags=Music
+   Each feature is normalized to:
    {
      id, artist, genre, venue, date (ISO), lat, lng,
-     image, url (sflive.art permalink), spotifyArtistId? (optional)
+     image, url (sflive.art event page), spotifyArtistId? (optional)
    }
    Spotify ids aren't in the feed yet — when they are, set
-   spotifyArtistId/spotifyTrackId in normalizeSfEvent() and the
+   spotifyArtistId/spotifyTrackId in normalizeEvent() and the
    player will embed instead of linking out to search.
    ============================================================ */
+const VIBEMAP_API = "https://api.vibemap.com/v0.3/search/events" +
+  "?tags__in=sf-live&boundarySelectorLabel=Neighborhood&boundary=san-francisco" +
+  "&tags=Music&page_size=200";
+
 const CITIES = {
-  sf: {
-    name: "San Francisco", center: [37.7749, -122.4194], zoom: 13,
-    live: true, api: "https://sflive.art/wp-json/vibemap/v1/events-data"
-  },
+  sf: { name: "San Francisco", center: [37.7749, -122.4194], zoom: 13, live: true, api: VIBEMAP_API },
   la: {
     name: "Los Angeles", center: [34.0522, -118.2437], zoom: 12, live: false,
     shows: [
@@ -338,38 +342,37 @@ const MOCK_SF = [
   { id:3, artist:"Khruangbin", genre:"Psych / Funk", venue:"Great American Music Hall", date:"2026-06-07T20:30", lat:37.7855, lng:-122.4186, spotifyArtistId:"2mVVjNmdjXZZDvhgQWiakk" }
 ];
 
-/* Pull a small, fast thumbnail. SF LIVE serves images through ImageKit,
-   which resizes via a ?tr= transform — far lighter than the full WP image. */
-function pickThumb(meta) {
-  const ik = (meta.vibemap_event_vibemap_images || meta.vibemap_event_venue_images || "")
-    .match(/https:\/\/ik\.imagekit\.io\/[^\s,]+?\.(?:webp|jpe?g|png)\?updatedAt=\d+/i);
-  if (ik) return ik[0] + "&tr=w-120,h-120,fo-auto";
+/* Smallest available ImageKit thumbnail from a Vibemap image array. */
+function pickThumb(...imageArrays) {
+  for (const arr of imageArrays) {
+    const im = (arr || [])[0];
+    if (im && (im.thumbnail_url || im.imagekit_url || im.original))
+      return im.thumbnail_url || (im.imagekit_url || im.original) + "&tr=w-120,h-120,fo-auto";
+  }
   return null;
 }
 
-/* Map one SF LIVE feed event to our show shape. */
-function normalizeSfEvent(e) {
-  const m = e.meta || {};
-  const lat = parseFloat(m.vibemap_event_latitude);
-  const lng = parseFloat(m.vibemap_event_longitude);
-  if (isNaN(lat) || isNaN(lng)) return null;
-  const start = m.vibemap_event_start_date || "";
+/* Map one Vibemap GeoJSON feature to our show shape. */
+function normalizeEvent(f) {
+  const p = f.properties || {};
+  // GeoJSON coordinates are [lng, lat]; fall back to the location object
+  let lng = f.geometry && f.geometry.coordinates && f.geometry.coordinates[0];
+  let lat = f.geometry && f.geometry.coordinates && f.geometry.coordinates[1];
+  if (lat == null && p.location) { lat = p.location.lat; lng = p.location.lon; }
+  if (typeof lat !== "number" || typeof lng !== "number") return null;
+  const start = p.start_date || "";
   if (!start) return null;
-  // first visible, non-utility tag reads best as the "genre"
-  const tag = (e.tags || []).find(t =>
-    !t.hide_from_frontend && !/sf-live|events?_feed|san-francisco/i.test(t.slug));
-  const cat = (m.vibemap_event_categories || "").split(",")[0].trim();
-  const genre = (tag && tag.name)
-    || (cat && cat !== "none" ? cat[0].toUpperCase() + cat.slice(1) : "Live");
+  const cat = (Array.isArray(p.categories) ? p.categories[0] : p.categories) || "";
+  const genre = cat ? cat[0].toUpperCase() + cat.slice(1) : "Music";
   return {
-    id: e.id,
-    artist: e.title,
+    id: p.id || f.id,
+    artist: p.name,
     genre,
-    venue: m.vibemap_event_venue_name || m.vibemap_event_hotspots_place || "SF venue",
+    venue: p.hotspots_place || "SF venue",
     date: start.replace(" ", "T"),
     lat, lng,
-    image: pickThumb(m) || e.featured_image || null,
-    url: e.permalink || m.vibemap_event_url || null
+    image: pickThumb(p.vibemap_images, p.venue_images),
+    url: p.slug ? `https://sflive.art/event/${p.slug}/` : (p.url || null)
     // spotifyArtistId: <-- set here once the music feed provides it
   };
 }
@@ -381,14 +384,15 @@ async function loadShows(cityKey) {
     const r = await fetch(city.api);
     if (!r.ok) throw new Error("HTTP " + r.status);
     const j = await r.json();
-    const shows = (j.events || []).map(normalizeSfEvent).filter(Boolean);
+    const features = (j.results && j.results.features) || [];
+    const shows = features.map(normalizeEvent).filter(Boolean);
     // collapse recurring occurrences: keep the soonest per title
     shows.sort((a, b) => new Date(a.date) - new Date(b.date));
     const byTitle = new Map();
     for (const s of shows) if (!byTitle.has(s.artist)) byTitle.set(s.artist, s);
     return [...byTitle.values()];
   } catch (err) {
-    console.warn("SF LIVE fetch failed — falling back to mock data.", err);
+    console.warn("Vibemap fetch failed — falling back to mock data.", err);
     return MOCK_SF;
   }
 }
@@ -504,7 +508,7 @@ function renderCrate() {
     </div>`).join("");
 
   els.crateList.querySelectorAll(".card").forEach(card => {
-    const id = +card.dataset.id;
+    const id = card.dataset.id;
     card.addEventListener("dragstart", e => {
       e.dataTransfer.setData("text/plain", id);
       card.classList.add("dragging");
@@ -533,14 +537,14 @@ function renderMarkers() {
       <div class="popup-card">
         <div class="pc-name">${s.artist}</div>
         <div class="pc-meta">${s.genre} · ${s.venue}<br/>${fmtWhen(s.date)}</div>
-        <button onclick="play(${s.id})">▶ Listen on the player</button>
+        <button onclick="play('${s.id}')">▶ Listen on the player</button>
         ${sflink}
       </div>`);
   });
 }
 
 function play(id) {
-  const s = allShows.find(x => x.id === id);
+  const s = allShows.find(x => String(x.id) === String(id));
   if (!s) return;
 
   els.turntable.classList.add("playing");
@@ -581,7 +585,7 @@ function initDrop() {
     t.addEventListener(ev, () => t.classList.remove("armed")));
   t.addEventListener("drop", e => {
     e.preventDefault();
-    const id = +e.dataTransfer.getData("text/plain");
+    const id = e.dataTransfer.getData("text/plain");
     if (id) play(id);
   });
 }
