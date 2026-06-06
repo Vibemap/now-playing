@@ -111,24 +111,61 @@
   .chip:hover { border-color: var(--accent); }
   .chip.active { background: var(--accent); border-color: var(--accent); color: #1a120e; }
 
-  /* ---------- Layout ---------- */
-  main {
-    flex: 1; display: grid; grid-template-columns: 380px 1fr; gap: 0;
-    min-height: 0;
-  }
-  @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+  /* ---------- Layout: compact player bar above the map ---------- */
+  main { flex: 1; display: flex; flex-direction: column; min-height: 0; }
 
-  /* ---------- Player column ---------- */
-  .player-col {
-    border-right: 1px solid var(--line); padding: 22px;
-    display: flex; flex-direction: column; gap: 18px; overflow-y: auto;
+  .now-bar {
+    display: flex; gap: 20px; padding: 16px 22px; align-items: flex-start;
+    border-bottom: 1px solid var(--line); background: var(--panel);
   }
-  /* player style toggle */
-  .player-head { display: flex; align-items: center; gap: 10px; }
-  .player-head .ph-label {
-    font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted);
+  /* compact player + location above it */
+  .np-player { flex: none; width: 150px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+  .np-loc {
+    font-size: 13px; font-weight: 800; letter-spacing: .3px; color: var(--ink);
+    display: flex; align-items: center; gap: 4px; text-align: center; line-height: 1.2;
   }
-  .player-head .seg { margin-left: auto; }
+  .np-loc::before { content: "📍"; }
+
+  /* render the players at a clean base size, scaled down to fit the bar */
+  .player-frame { position: relative; width: 150px; height: 150px; flex: none; }
+  .player-frame:has(.mode-cassette) { height: 100px; }
+  .player-frame .player-stage {
+    position: absolute; top: 0; left: 0; width: 320px;
+    transform: scale(0.46875); transform-origin: top left;
+  }
+  .seg-sm button { padding: 4px 10px; font-size: 12px; }
+
+  /* now playing + controls + visualizer */
+  .np-info { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 10px; }
+  .np-controls { display: flex; align-items: center; gap: 8px; }
+  .ctrl-btn {
+    border: 1px solid var(--line); background: var(--panel-2); color: var(--ink);
+    border-radius: 999px; padding: 6px 13px; font-size: 13px; font-weight: 700; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 5px; transition: all .12s;
+  }
+  .ctrl-btn:hover { border-color: var(--accent); }
+  .ctrl-btn.active { background: var(--accent); border-color: var(--accent); color: #1a120e; }
+
+  .viz { display: flex; align-items: flex-end; gap: 3px; height: 22px; margin-left: auto; }
+  .viz span { width: 4px; height: 20%; background: var(--muted); border-radius: 2px; transform-origin: bottom; }
+  body.is-playing .viz span { background: var(--accent); animation: viz .9s ease-in-out infinite alternate; }
+  .viz span:nth-child(1){ animation-delay: 0s;   animation-duration: .70s }
+  .viz span:nth-child(2){ animation-delay: -.5s; animation-duration: 1.0s }
+  .viz span:nth-child(3){ animation-delay: -.2s; animation-duration: .80s }
+  .viz span:nth-child(4){ animation-delay: -.7s; animation-duration: 1.1s }
+  .viz span:nth-child(5){ animation-delay: -.3s; animation-duration: .75s }
+  .viz span:nth-child(6){ animation-delay: -.6s; animation-duration: .95s }
+  .viz span:nth-child(7){ animation-delay: -.1s; animation-duration: .85s }
+  @keyframes viz { from { height: 18%; } to { height: 100%; } }
+
+  /* crate as a compact side list */
+  .crate { flex: none; width: 290px; max-height: 300px; overflow-y: auto; }
+
+  @media (max-width: 900px) {
+    .now-bar { flex-direction: column; align-items: stretch; }
+    .np-player { width: auto; }
+    .crate { width: auto; max-height: 190px; }
+  }
 
   /* stage holds both players; only the active mode is shown */
   .player-stage { position: relative; }
@@ -319,6 +356,7 @@
   .card:hover { transform: translateY(-1px); border-color: var(--accent); background: var(--panel-2); }
   .card:active { cursor: grabbing; }
   .card.dragging { opacity: 0.4; }
+  .card.playing { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
   .card .avatar {
     width: 46px; height: 46px; border-radius: 10px; flex: none; overflow: hidden;
     background: var(--panel-2); display: grid; place-items: center; font-weight: 800; color: var(--accent-2);
@@ -334,7 +372,7 @@
   }
 
   /* ---------- Map ---------- */
-  .map-col { position: relative; min-height: 360px; }
+  .map-col { position: relative; flex: 1 1 auto; min-height: 320px; }
   #map { position: absolute; inset: 0; background: var(--map-bg); }
   .leaflet-container { background: var(--map-bg); }
   .map-overlay {
@@ -396,16 +434,12 @@
   <nav class="genre-bar" id="genreBar"></nav>
 
   <main>
-    <!-- ===================== PLAYER COLUMN ===================== -->
-    <section class="player-col">
-      <div class="player-head">
-        <span class="ph-label">Player</span>
-        <div class="seg" id="playerToggle">
-          <button data-player="vinyl" class="active">Vinyl</button>
-          <button data-player="cassette">Cassette</button>
-        </div>
-      </div>
-
+    <!-- ===================== PLAYER BAR ===================== -->
+    <section class="now-bar">
+      <!-- compact player with location above it -->
+      <div class="np-player">
+        <div class="np-loc" id="npLoc">San Francisco</div>
+        <div class="player-frame">
       <div class="player-stage mode-vinyl" id="playerStage" aria-label="Drop an artist here to listen">
         <!-- Vinyl -->
         <div class="turntable" id="turntable">
@@ -456,16 +490,30 @@
           <div class="cass-door"><span class="dot"></span></div>
         </div>
       </div>
+        </div><!-- /player-frame -->
+        <div class="seg seg-sm" id="playerToggle">
+          <button data-player="vinyl" class="active">Vinyl</button>
+          <button data-player="cassette">Cassette</button>
+        </div>
+      </div><!-- /np-player -->
 
-      <div class="now-playing" id="nowPlaying">
-        <div class="np-empty">Nothing on the platter yet — pick someone playing tonight.</div>
+      <!-- now playing + controls + visualizer -->
+      <div class="np-info">
+        <div class="np-controls">
+          <button class="ctrl-btn" id="shuffleBtn" aria-pressed="false" title="Shuffle: play a random show">🔀 Shuffle</button>
+          <button class="ctrl-btn" id="autoplayBtn" aria-pressed="false" title="Autoplay: roll into the next show">↻ Autoplay</button>
+          <div class="viz" id="viz" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+        </div>
+        <div class="now-playing" id="nowPlaying">
+          <div class="np-empty">Nothing on the platter yet — pick someone playing tonight.</div>
+        </div>
+        <div class="embed-wrap" id="embedWrap" style="display:none">
+          <div id="spotifyEmbed"><div id="spotifyMount"></div></div>
+          <div id="embedMsg" class="np-fallback" style="display:none"></div>
+        </div>
       </div>
 
-      <div class="embed-wrap" id="embedWrap" style="display:none">
-        <div id="spotifyEmbed"><div id="spotifyMount"></div></div>
-        <div id="embedMsg" class="np-fallback" style="display:none"></div>
-      </div>
-
+      <!-- crate -->
       <div class="crate">
         <h3 id="crateTitle">Playing this weekend</h3>
         <div class="crate-list" id="crateList"></div>
@@ -599,6 +647,7 @@ async function loadShows(cityKey) {
    APP
    ============================================================ */
 let map, markerLayer, currentWhen = "weekend", currentCity = "sf", allShows = [];
+let currentShowId = null, autoplayOn = false, shuffleOn = false, trackEndHandled = false;
 
 const els = {
   citySelect: document.getElementById("citySelect"),
@@ -608,10 +657,13 @@ const els = {
   playerStage: document.getElementById("playerStage"),
   playerToggle: document.getElementById("playerToggle"),
   labelText: document.getElementById("labelText"),
+  npLoc: document.getElementById("npLoc"),
   nowPlaying: document.getElementById("nowPlaying"),
   embedWrap: document.getElementById("embedWrap"),
   spotifyEmbed: document.getElementById("spotifyEmbed"),
   embedMsg: document.getElementById("embedMsg"),
+  shuffleBtn: document.getElementById("shuffleBtn"),
+  autoplayBtn: document.getElementById("autoplayBtn"),
   liveCount: document.getElementById("liveCount"),
   cityLabel: document.getElementById("cityLabel"),
   genreBar: document.getElementById("genreBar"),
@@ -750,6 +802,7 @@ function renderCrate() {
     card.addEventListener("dragend", () => card.classList.remove("dragging"));
     card.addEventListener("click", () => play(id));   // click also works
   });
+  if (currentShowId != null) highlightCrate(currentShowId);
 }
 
 function renderMarkers() {
@@ -759,6 +812,7 @@ function renderMarkers() {
   const when = currentWhen === "weekend" ? "this weekend" : "this week";
   const genre = CITIES[currentCity].live ? ` · ${currentGenre}` : "";
   els.cityLabel.textContent = `${CITIES[currentCity].name}${genre} · ${when}`;
+  els.npLoc.textContent = CITIES[currentCity].name;
 
   shows.forEach(s => {
     const icon = L.divIcon({
@@ -794,7 +848,19 @@ function startSpotify(uri) {
     SP.api.createController(
       document.getElementById("spotifyMount"),
       { width: "100%", height: 152, uri },
-      (controller) => { spotifyController = controller; SP.controller = controller; controller.play(); }
+      (controller) => {
+        spotifyController = controller;
+        SP.controller = controller;
+        // auto-advance when a track finishes (if Autoplay is on)
+        controller.addListener("playback_update", (e) => {
+          const d = (e && e.data) || {};
+          if (autoplayOn && d.duration > 0 && d.position >= d.duration - 800 && !trackEndHandled) {
+            trackEndHandled = true;
+            advanceNext();
+          }
+        });
+        controller.play();
+      }
     );
   } else {
     SP.pendingUri = uri;                       // API still loading → play when ready
@@ -827,8 +893,12 @@ async function play(id) {
   const s = allShows.find(x => String(x.id) === String(id));
   if (!s) return;
 
+  currentShowId = s.id;
+  trackEndHandled = false;
   els.playerStage.classList.add("playing");
+  document.body.classList.add("is-playing");      // drives the vibe visualizer
   document.querySelectorAll(".label-text").forEach(el => el.textContent = s.artist);
+  highlightCrate(s.id);
 
   const sflink = s.url
     ? `<a class="np-link" href="${s.url}" target="_blank" rel="noopener">View on SF LIVE ↗</a>` : "";
@@ -854,6 +924,47 @@ async function play(id) {
 
   // highlight on map
   map.flyTo([s.lat, s.lng], 15, { duration: 0.8 });
+}
+
+function highlightCrate(id) {
+  els.crateList.querySelectorAll(".card").forEach(c =>
+    c.classList.toggle("playing", String(c.dataset.id) === String(id)));
+}
+
+/* ---------- Shuffle & Autoplay ---------- */
+function pickRandomId(exclude) {
+  const list = visibleShows();
+  if (!list.length) return null;
+  if (list.length === 1) return list[0].id;
+  let p;
+  do { p = list[Math.floor(Math.random() * list.length)]; }
+  while (exclude && String(p.id) === String(currentShowId));
+  return p.id;
+}
+function pickNextId() {
+  const list = visibleShows();
+  if (!list.length) return null;
+  if (shuffleOn) return pickRandomId(true);
+  const i = list.findIndex(s => String(s.id) === String(currentShowId));
+  return list[(i + 1) % list.length].id;   // i === -1 → first
+}
+function advanceNext() {
+  const id = pickNextId();
+  if (id != null) play(id);
+}
+function initPlaybackControls() {
+  els.shuffleBtn.addEventListener("click", () => {
+    shuffleOn = !shuffleOn;
+    els.shuffleBtn.classList.toggle("active", shuffleOn);
+    els.shuffleBtn.setAttribute("aria-pressed", shuffleOn);
+    if (shuffleOn) { const id = pickRandomId(true); if (id != null) play(id); }
+  });
+  els.autoplayBtn.addEventListener("click", () => {
+    autoplayOn = !autoplayOn;
+    els.autoplayBtn.classList.toggle("active", autoplayOn);
+    els.autoplayBtn.setAttribute("aria-pressed", autoplayOn);
+    if (autoplayOn && currentShowId == null) { const id = pickNextId(); if (id != null) play(id); }
+  });
 }
 
 function initDrop() {
@@ -904,6 +1015,7 @@ setPlayer(savedPlayer);   // default vinyl; restores last choice
 initMap();
 setTheme(savedTheme);   // default light; restores last choice
 initDrop();
+initPlaybackControls();
 initEvents();
 loadCity();
 window.play = play; // for popup buttons
