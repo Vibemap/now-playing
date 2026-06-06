@@ -461,7 +461,10 @@
         <div class="np-empty">Nothing on the platter yet — pick someone playing tonight.</div>
       </div>
 
-      <div class="embed-wrap" id="embedWrap" style="display:none"></div>
+      <div class="embed-wrap" id="embedWrap" style="display:none">
+        <div id="spotifyEmbed"><div id="spotifyMount"></div></div>
+        <div id="embedMsg" class="np-fallback" style="display:none"></div>
+      </div>
 
       <div class="crate">
         <h3 id="crateTitle">Playing this weekend</h3>
@@ -480,6 +483,15 @@
   </main>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<!-- Spotify IFrame API — enables programmatic play() (autoplay on user gesture). -->
+<script>
+  window.__spotify = { api: null, pendingUri: null, onReady: null };
+  window.onSpotifyIframeApiReady = (api) => {
+    window.__spotify.api = api;
+    if (window.__spotify.onReady) window.__spotify.onReady(api);
+  };
+</script>
+<script src="https://open.spotify.com/embed/iframe-api/v1" async></script>
 <script>
 /* ============================================================
    DATA SOURCE
@@ -598,6 +610,8 @@ const els = {
   labelText: document.getElementById("labelText"),
   nowPlaying: document.getElementById("nowPlaying"),
   embedWrap: document.getElementById("embedWrap"),
+  spotifyEmbed: document.getElementById("spotifyEmbed"),
+  embedMsg: document.getElementById("embedMsg"),
   liveCount: document.getElementById("liveCount"),
   cityLabel: document.getElementById("cityLabel"),
   genreBar: document.getElementById("genreBar"),
@@ -765,18 +779,33 @@ function renderMarkers() {
   });
 }
 
-function embedSpotify(kind, id) {
-  els.embedWrap.innerHTML =
-    `<iframe src="https://open.spotify.com/embed/${kind}/${id}?utm_source=nowplaying" height="152" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy"></iframe>`;
+/* ---------- Spotify playback (IFrame API → programmatic autoplay) ---------- */
+let spotifyController = null;
+const SP = window.__spotify || { api: null, pendingUri: null };
+SP.onReady = (api) => { if (SP.pendingUri) { const u = SP.pendingUri; SP.pendingUri = null; startSpotify(u); } };
+
+function startSpotify(uri) {
+  els.spotifyEmbed.style.display = "";
+  els.embedMsg.style.display = "none";
+  if (spotifyController) {
+    spotifyController.loadUri(uri);
+    spotifyController.play();                 // already-built controller → just play
+  } else if (SP.api) {
+    SP.api.createController(
+      document.getElementById("spotifyMount"),
+      { width: "100%", height: 152, uri },
+      (controller) => { spotifyController = controller; SP.controller = controller; controller.play(); }
+    );
+  } else {
+    SP.pendingUri = uri;                       // API still loading → play when ready
+    showEmbedMsg("Loading player…");
+  }
 }
 
-function searchFallback(artist) {
-  const q = encodeURIComponent(artist);
-  els.embedWrap.innerHTML =
-    `<div class="np-fallback">
-       <span>Couldn't auto-match a track —</span>
-       <a href="https://open.spotify.com/search/${q}" target="_blank" rel="noopener">search “${artist}” on Spotify ↗</a>
-     </div>`;
+function showEmbedMsg(html) {
+  els.spotifyEmbed.style.display = "none";
+  els.embedMsg.style.display = "";
+  els.embedMsg.innerHTML = html;
 }
 
 /* Resolve an artist/event name → Spotify ids via the Netlify function.
@@ -809,17 +838,18 @@ async function play(id) {
     ${sflink}`;
   els.embedWrap.style.display = "block";
 
+  const uriFor = (kind, id) => `spotify:${kind}:${id}`;
   // 1. Pre-linked id wins (e.g. mock/curated data).
-  if (s.spotifyTrackId) { embedSpotify("track", s.spotifyTrackId); }
-  else if (s.spotifyArtistId) { embedSpotify("artist", s.spotifyArtistId); }
+  if (s.spotifyTrackId) { startSpotify(uriFor("track", s.spotifyTrackId)); }
+  else if (s.spotifyArtistId) { startSpotify(uriFor("artist", s.spotifyArtistId)); }
   else {
     // 2. Ask the function to match this name on Spotify.
-    els.embedWrap.innerHTML = `<div class="np-fallback">Finding “${s.artist}” on Spotify…</div>`;
+    showEmbedMsg(`Finding “${s.artist}” on Spotify…`);
     const found = await resolveSpotify(s.artist);
     if (els.labelText.textContent !== s.artist) return; // a newer pick superseded this one
-    if (found && found.trackId) embedSpotify("track", found.trackId);
-    else if (found && found.artistId) embedSpotify("artist", found.artistId);
-    else searchFallback(s.artist);
+    if (found && found.trackId) startSpotify(uriFor("track", found.trackId));
+    else if (found && found.artistId) startSpotify(uriFor("artist", found.artistId));
+    else showEmbedMsg(`Couldn't auto-match a track — <a href="https://open.spotify.com/search/${encodeURIComponent(s.artist)}" target="_blank" rel="noopener">search “${s.artist}” on Spotify ↗</a>`);
   }
 
   // highlight on map
