@@ -186,8 +186,41 @@
   .seg-sm.ph-seg button { padding: 5px 11px; font-size: 12px; }
 
   .crate-list {
-    display: grid; grid-template-columns: repeat(auto-fill, minmax(195px, 1fr));
-    gap: 10px; overflow-y: auto; margin-top: 10px; padding: 2px; align-content: start;
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+    gap: 9px; overflow-y: auto; margin-top: 10px; padding: 2px; align-content: start;
+  }
+
+  /* jukebox selection strips */
+  .crate-list .card {
+    display: grid; grid-template-columns: 38px 1fr auto; align-items: center; gap: 10px;
+    background: linear-gradient(var(--cassette-label, #faf4ea), #f1e7d4);
+    border: 1px solid var(--line); border-radius: 6px; padding: 7px 11px 7px 7px;
+    cursor: grab; transition: transform .1s, box-shadow .12s, border-color .12s;
+    font-family: Georgia, "Times New Roman", serif;
+  }
+  [data-theme="dark"] .crate-list .card { background: linear-gradient(#2c251f, #211b16); }
+  .crate-list .card:hover { transform: translateY(-1px); border-color: var(--accent); box-shadow: 0 4px 12px rgba(0,0,0,.18); }
+  .crate-list .card:active { cursor: grabbing; }
+  .crate-list .card.dragging { opacity: .4; }
+  .crate-list .card.playing { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+  .sel-code {
+    width: 38px; height: 38px; border-radius: 4px; flex: none;
+    background: linear-gradient(160deg, var(--accent), #b94a28); color: #fff;
+    font-family: "Helvetica Neue", Arial, sans-serif; font-weight: 800; font-size: 14px; letter-spacing: .5px;
+    display: grid; place-items: center; box-shadow: inset 0 0 0 2px rgba(255,255,255,.14);
+  }
+  .crate-list .card .info { min-width: 0; }
+  .crate-list .card .name {
+    font-weight: 700; font-size: 14px; color: var(--ink); line-height: 1.15;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .crate-list .card .sub {
+    font-family: "Helvetica Neue", Arial, sans-serif; font-size: 12px; color: var(--muted);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .card-genre {
+    font-family: Arial, sans-serif; font-size: 9px; font-weight: 800; letter-spacing: .5px;
+    text-transform: uppercase; color: var(--accent-2); align-self: center; white-space: nowrap;
   }
 
   /* stage holds both players; only the active mode is shown */
@@ -373,32 +406,6 @@
   }
   .embed-wrap iframe { display: block; width: 100%; border: 0; }
   .embed-wrap .np-fallback { background: var(--overlay-bg); backdrop-filter: blur(6px); }
-
-  /* ---------- Crate (artist list) ---------- */
-  .crate h3 { margin: 4px 0 10px; font-size: 13px; letter-spacing: 1px; color: var(--muted); text-transform: uppercase; }
-  .crate-list { display: flex; flex-direction: column; gap: 8px; }
-  .card {
-    display: flex; align-items: center; gap: 12px; padding: 10px;
-    background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
-    cursor: grab; transition: transform .12s, border-color .12s, background .12s;
-  }
-  .card:hover { transform: translateY(-1px); border-color: var(--accent); background: var(--panel-2); }
-  .card:active { cursor: grabbing; }
-  .card.dragging { opacity: 0.4; }
-  .card.playing { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
-  .card .avatar {
-    width: 46px; height: 46px; border-radius: 10px; flex: none; overflow: hidden;
-    background: var(--panel-2); display: grid; place-items: center; font-weight: 800; color: var(--accent-2);
-    background-size: cover; background-position: center;
-  }
-  .card .info { min-width: 0; flex: 1; }
-  .card .info .name { font-weight: 700; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .card .info .sub { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .card .when { font-size: 11px; color: var(--accent-2); font-weight: 700; white-space: nowrap; }
-  .genre-pill {
-    font-size: 10px; padding: 2px 7px; border-radius: 999px; background: rgba(232,100,60,0.16);
-    color: var(--accent-2); font-weight: 700; align-self: flex-start;
-  }
 
   /* ---------- Map ---------- */
   #map { position: absolute; inset: 0; background: var(--map-bg); }
@@ -811,18 +818,19 @@ function visibleShows() {
 function renderCrate() {
   const shows = visibleShows();
   els.crateTitle.textContent = currentWhen === "weekend" ? "Playing this weekend" : "Playing this week";
-  els.crateList.innerHTML = shows.map(s => `
-    <div class="card" draggable="true" data-id="${s.id}">
-      <div class="avatar"${s.image ? ` style="background-image:url('${s.image}')"` : ""}>${s.image ? "" : initials(s.artist)}</div>
+  els.crateList.innerHTML = shows.map((s, i) => {
+    const n = i % 10;                                   // jukebox selection code: A1..A9, A0, B1…
+    const code = String.fromCharCode(65 + (Math.floor(i / 10) % 18)) + (n === 9 ? "0" : n + 1);
+    return `
+    <div class="card" draggable="true" data-id="${s.id}" title="Drag up to the player">
+      <div class="sel-code">${code}</div>
       <div class="info">
         <div class="name">${s.artist}</div>
-        <div class="sub">${s.venue}</div>
+        <div class="sub">${s.venue} · ${fmtWhen(s.date)}</div>
       </div>
-      <div style="text-align:right; display:flex; flex-direction:column; gap:4px; align-items:flex-end;">
-        <span class="genre-pill">${s.genre}</span>
-        <span class="when">${fmtWhen(s.date)}</span>
-      </div>
-    </div>`).join("");
+      <span class="card-genre">${s.genre}</span>
+    </div>`;
+  }).join("");
 
   els.crateList.querySelectorAll(".card").forEach(card => {
     const id = card.dataset.id;
