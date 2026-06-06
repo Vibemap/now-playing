@@ -636,17 +636,24 @@
 const GENRES = ["Music", "Comedy", "Dance", "Theater", "Nightlife"];
 let currentGenre = "Music";
 
-/* Vibemap search scoped to SF + a genre tag. We intentionally DON'T use the
-   sf-live curation tag here: with it unioned in, every genre returned the same
-   curated set, so the tag wouldn't actually filter. Plain tags=<genre> does. */
-function sfApiUrl(genre) {
+/* Vibemap search scoped to a city boundary + a genre tag. We intentionally DON'T
+   use a curation tag here: unioned in, every genre returned the same curated set,
+   so the tag wouldn't actually filter. Plain tags=<genre> does. */
+function vibemapUrl(boundary, genre) {
   return "https://api.vibemap.com/v0.3/search/events" +
-    "?boundarySelectorLabel=Neighborhood&boundary=san-francisco&page_size=400" +
+    "?boundarySelectorLabel=Neighborhood&boundary=" + boundary + "&page_size=400" +
     "&tags=" + encodeURIComponent(genre);
 }
 
 const CITIES = {
-  sf: { name: "San Francisco", center: [37.7749, -122.4194], zoom: 13, live: true },
+  sf: {
+    name: "San Francisco", center: [37.7749, -122.4194], zoom: 13, live: true,
+    boundary: "san-francisco", site: "https://sflive.art/event/", linkLabel: "SF LIVE"
+  },
+  nyc: {
+    name: "New York", center: [40.7300, -73.9900], zoom: 11, live: true,
+    boundary: "new-york"   // no city site → jump off to each event's own page
+  },
   la: {
     name: "Los Angeles", center: [34.0522, -118.2437], zoom: 12, live: false,
     shows: [
@@ -690,11 +697,12 @@ function normalizeEvent(f) {
     id: p.id || f.id,
     artist: p.name,
     genre,
-    venue: p.hotspots_place || "SF venue",
+    venue: p.hotspots_place || "venue",
     date: start.replace(" ", "T"),
     lat, lng,
     image: pickThumb(p.vibemap_images, p.venue_images),
-    url: p.slug ? `https://sflive.art/event/${p.slug}/` : (p.url || null)
+    // city site permalink (e.g. SF LIVE) when available, else the event's own page
+    url: (CITIES[currentCity].site && p.slug) ? CITIES[currentCity].site + p.slug + "/" : (p.url || null)
     // spotifyArtistId: <-- set here once the music feed provides it
   };
 }
@@ -703,7 +711,7 @@ async function loadShows(cityKey) {
   const city = CITIES[cityKey];
   if (!city.live) return city.shows;
   try {
-    const r = await fetch(city.api || sfApiUrl(currentGenre));
+    const r = await fetch(vibemapUrl(city.boundary, currentGenre));
     if (!r.ok) throw new Error("HTTP " + r.status);
     const j = await r.json();
     const features = (j.results && j.results.features) || [];
@@ -905,8 +913,9 @@ function renderMarkers() {
       iconSize: [14,14], iconAnchor: [7,7]
     });
     const m = L.marker([s.lat, s.lng], { icon }).addTo(markerLayer);
+    const _lbl = CITIES[currentCity].linkLabel;
     const sflink = s.url
-      ? `<a class="pc-link" href="${s.url}" target="_blank" rel="noopener">Details on SF LIVE ↗</a>` : "";
+      ? `<a class="pc-link" href="${s.url}" target="_blank" rel="noopener">${_lbl ? "Details on " + _lbl : "Event details"} ↗</a>` : "";
     m.bindPopup(`
       <div class="popup-card">
         <div class="pc-name">${s.artist}</div>
@@ -994,8 +1003,9 @@ async function play(id) {
   els.npLoc.title = s.venue;
   highlightCrate(s.id);
 
+  const _lbl = CITIES[currentCity].linkLabel;
   const sflink = s.url
-    ? `<a class="np-link" href="${s.url}" target="_blank" rel="noopener">View on SF LIVE ↗</a>` : "";
+    ? `<a class="np-link" href="${s.url}" target="_blank" rel="noopener">${_lbl ? "View on " + _lbl : "View event"} ↗</a>` : "";
   els.nowPlaying.innerHTML = `
     <div class="np-artist">${s.artist}</div>
     <div class="np-song" id="npSong"></div>
@@ -1053,6 +1063,16 @@ function nextSong() {
 function highlightCrate(id) {
   els.crateList.querySelectorAll(".card").forEach(c =>
     c.classList.toggle("playing", String(c.dataset.id) === String(id)));
+}
+
+/* Reset the player display (e.g. when switching cities). */
+function clearNowPlaying() {
+  currentShowId = null;
+  songState = null;
+  if (spotifyController) { try { spotifyController.pause(); } catch (e) {} }
+  setPlaybackUI(false);
+  els.nextSongBtn.style.visibility = "hidden";
+  els.nowPlaying.innerHTML = '<div class="np-empty">Nothing on the platter yet — pick a show to start the record.</div>';
 }
 
 /* Reflect play/pause state across the player, visualizer, and button. */
@@ -1135,7 +1155,7 @@ async function loadCity() {
 }
 
 function initEvents() {
-  els.citySelect.addEventListener("change", e => { currentCity = e.target.value; syncGenreBar(); loadCity(); });
+  els.citySelect.addEventListener("change", e => { currentCity = e.target.value; clearNowPlaying(); syncGenreBar(); loadCity(); });
   document.getElementById("themeToggle").addEventListener("click", () => {
     const isDark = document.documentElement.getAttribute("data-theme") === "dark";
     setTheme(isDark ? "light" : "dark");
