@@ -93,20 +93,19 @@
   }
   .theme-btn:hover { border-color: var(--accent); }
 
-  /* genre filter bar */
+  /* genre filter (lives in the rack now) */
   .genre-bar {
-    display: flex; align-items: center; gap: 8px;
-    padding: 10px 24px; border-bottom: 1px solid var(--line);
-    overflow-x: auto; scrollbar-width: thin;
+    display: flex; align-items: center; gap: 7px;
+    margin-top: 10px; overflow-x: auto; scrollbar-width: thin;
   }
   .genre-bar .glabel {
     flex: none; font-size: 11px; letter-spacing: 1px; text-transform: uppercase;
     color: var(--muted); margin-right: 2px;
   }
   .chip {
-    flex: none; border: 1px solid var(--line); background: var(--panel);
-    color: var(--ink); padding: 6px 14px; border-radius: 999px;
-    font-size: 13px; font-weight: 600; cursor: pointer; transition: all .12s;
+    flex: none; border: 1px solid var(--line); background: var(--panel-2);
+    color: var(--ink); padding: 5px 13px; border-radius: 999px;
+    font-size: 12px; font-weight: 700; cursor: pointer; transition: all .12s;
   }
   .chip:hover { border-color: var(--accent); }
   .chip.active { background: var(--accent); border-color: var(--accent); color: #1a120e; }
@@ -114,8 +113,8 @@
   /* ---------- Layout: map on top, playlist below, player straddling the seam ---------- */
   main { flex: 1; display: flex; flex-direction: column; min-height: 0; }
 
-  /* MAP (top) */
-  .map-col { position: relative; flex: 1 1 56%; min-height: 280px; overflow: visible; }
+  /* MAP (top) — kept shorter so the rack has more room */
+  .map-col { position: relative; flex: 1 1 38%; min-height: 220px; overflow: visible; }
 
   /* stage: location + visualizer + player, centered, dipping into the playlist */
   .stage {
@@ -124,10 +123,19 @@
     z-index: 600; pointer-events: none; width: max-content;
   }
   .stage > * { pointer-events: auto; }
+  .loc-nav { display: flex; align-items: center; gap: 6px; }
+  .loc-arrow {
+    width: 26px; height: 26px; border-radius: 50%; flex: none; cursor: pointer;
+    border: 1px solid var(--line); background: var(--overlay-bg); color: var(--ink);
+    font-size: 16px; line-height: 1; display: grid; place-items: center;
+    backdrop-filter: blur(6px); transition: all .12s;
+  }
+  .loc-arrow:hover { border-color: var(--accent); color: var(--accent); }
   .np-loc {
-    font-size: 13px; font-weight: 800; letter-spacing: .3px; color: var(--ink);
+    max-width: 220px; font-size: 13px; font-weight: 800; letter-spacing: .3px; color: var(--ink);
     text-align: center; background: var(--overlay-bg); border: 1px solid var(--line);
     border-radius: 999px; padding: 5px 14px; backdrop-filter: blur(6px);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
   .np-loc::before { content: "📍 "; }
 
@@ -168,7 +176,7 @@
 
   /* PLAYLIST (bottom) */
   .playlist {
-    flex: 1 1 44%; min-height: 200px; display: flex; flex-direction: column;
+    flex: 1 1 62%; min-height: 260px; display: flex; flex-direction: column;
     background: var(--panel); border-top: 1px solid var(--line); padding: 12px 22px 16px;
   }
   .playlist-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
@@ -472,8 +480,6 @@
     </div>
   </header>
 
-  <nav class="genre-bar" id="genreBar"></nav>
-
   <main>
     <!-- ===================== MAP (top) — player straddles the seam ===================== -->
     <section class="map-col">
@@ -485,7 +491,11 @@
 
       <!-- location + visualizer + player, centered, dipping into the playlist -->
       <div class="stage">
-        <div class="np-loc" id="npLoc">San Francisco</div>
+        <div class="loc-nav">
+          <button class="loc-arrow" id="prevVenue" aria-label="Previous venue">‹</button>
+          <div class="np-loc" id="npLoc">San Francisco</div>
+          <button class="loc-arrow" id="nextVenue" aria-label="Next venue">›</button>
+        </div>
         <div class="transport">
           <button class="pp-btn" id="playPauseBtn" aria-label="Play or pause">▶</button>
           <div class="viz" id="viz" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
@@ -569,6 +579,7 @@
           </div>
         </div>
       </div>
+      <nav class="genre-bar" id="genreBar"></nav>
       <div class="crate-list" id="crateList"></div>
     </section>
   </main>
@@ -708,6 +719,8 @@ const els = {
   shuffleBtn: document.getElementById("shuffleBtn"),
   autoplayBtn: document.getElementById("autoplayBtn"),
   playPauseBtn: document.getElementById("playPauseBtn"),
+  prevVenue: document.getElementById("prevVenue"),
+  nextVenue: document.getElementById("nextVenue"),
   liveCount: document.getElementById("liveCount"),
   cityLabel: document.getElementById("cityLabel"),
   genreBar: document.getElementById("genreBar"),
@@ -858,7 +871,7 @@ function renderMarkers() {
   const when = currentWhen === "weekend" ? "this weekend" : "this week";
   const genre = CITIES[currentCity].live ? ` · ${currentGenre}` : "";
   els.cityLabel.textContent = `${CITIES[currentCity].name}${genre} · ${when}`;
-  els.npLoc.textContent = CITIES[currentCity].name;
+  if (currentShowId == null) els.npLoc.textContent = CITIES[currentCity].name;  // keep venue while playing
 
   shows.forEach(s => {
     const icon = L.divIcon({
@@ -945,6 +958,8 @@ async function play(id) {
   trackEndHandled = false;
   setPlaybackUI(true);                             // optimistic; listener corrects from real state
   document.querySelectorAll(".label-text").forEach(el => el.textContent = s.artist);
+  els.npLoc.textContent = s.venue;                 // location pin shows the current venue
+  els.npLoc.title = s.venue;
   highlightCrate(s.id);
 
   const sflink = s.url
@@ -1006,6 +1021,15 @@ function advanceNext() {
   const id = pickNextId();
   if (id != null) play(id);
 }
+/* Step to the previous/next venue in the current list (the ‹ › arrows). */
+function stepShow(dir) {
+  const list = visibleShows();
+  if (!list.length) return;
+  let i = list.findIndex(s => String(s.id) === String(currentShowId));
+  if (i === -1) i = dir > 0 ? -1 : 0;
+  const target = list[(((i + dir) % list.length) + list.length) % list.length];
+  play(target.id);
+}
 function initPlaybackControls() {
   els.shuffleBtn.addEventListener("click", () => {
     shuffleOn = !shuffleOn;
@@ -1023,6 +1047,8 @@ function initPlaybackControls() {
     if (spotifyController) spotifyController.togglePlay();           // pause/resume current
     else { const id = currentShowId != null ? currentShowId : pickNextId(); if (id != null) play(id); }
   });
+  els.prevVenue.addEventListener("click", () => stepShow(-1));
+  els.nextVenue.addEventListener("click", () => stepShow(1));
 }
 
 function initDrop() {
