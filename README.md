@@ -44,6 +44,8 @@ play a 30s preview; full playback happens for listeners already signed into Spot
 - **Live SF data** — San Francisco pulls real music shows from the Vibemap API
   (`api.vibemap.com/v0.3/search/events`, filtered to `tags=Music` in San Francisco).
   Los Angeles is mock demo data.
+- **Player style** — a Vinyl / Cassette toggle above the player; cassette reels spin while
+  playing. Defaults to Vinyl; choice persists (`np-player`). (Could later default per city.)
 - **Turntable** — spins + tonearm drops when something is playing.
 - **Pulsing map** (Leaflet + Carto tiles, light/dark) — one animated pin per live show.
 - **Drag-and-drop / click** — drag a card to the platter, click the card, or click a

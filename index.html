@@ -19,6 +19,8 @@
     --live: #e23b3b;
     --line: #e4d8c7;
     --turntable: linear-gradient(160deg, #ffffff, #efe6d8);
+    --cassette-body: linear-gradient(165deg, #e9decb, #cdbaa0);
+    --cassette-label: #faf4ea;
     --overlay-bg: rgba(255,250,243,0.86);
     --map-bg: #e9e2d6;
     --radius: 16px;
@@ -36,6 +38,8 @@
     --live: #ff5a5a;
     --line: #3a302a;
     --turntable: linear-gradient(160deg, #2a231e, #1a1512);
+    --cassette-body: linear-gradient(165deg, #342c25, #221b16);
+    --cassette-label: #efe6d8;
     --overlay-bg: rgba(20,17,15,0.82);
     --map-bg: #0d0b0a;
   }
@@ -119,6 +123,19 @@
     border-right: 1px solid var(--line); padding: 22px;
     display: flex; flex-direction: column; gap: 18px; overflow-y: auto;
   }
+  /* player style toggle */
+  .player-head { display: flex; align-items: center; gap: 10px; }
+  .player-head .ph-label {
+    font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted);
+  }
+  .player-head .seg { margin-left: auto; }
+
+  /* stage holds both players; only the active mode is shown */
+  .player-stage { position: relative; }
+  .player-stage .cassette { display: none; }
+  .player-stage.mode-cassette .turntable { display: none; }
+  .player-stage.mode-cassette .cassette { display: flex; }
+
   .turntable {
     position: relative; aspect-ratio: 1; border-radius: var(--radius);
     background: var(--turntable);
@@ -126,7 +143,8 @@
     box-shadow: inset 0 1px 0 rgba(255,255,255,0.04), 0 18px 40px rgba(0,0,0,0.5);
     padding: 26px; transition: box-shadow .3s;
   }
-  .turntable.armed { box-shadow: 0 0 0 2px var(--accent), 0 18px 40px rgba(0,0,0,0.5); }
+  .player-stage.armed .turntable,
+  .player-stage.armed .cassette { box-shadow: 0 0 0 2px var(--accent), 0 18px 40px rgba(0,0,0,0.5); }
   .platter {
     position: absolute; inset: 26px; border-radius: 50%;
     background:
@@ -135,7 +153,7 @@
     display: grid; place-items: center;
     animation: spin 4s linear infinite; animation-play-state: paused;
   }
-  .turntable.playing .platter { animation-play-state: running; }
+  .player-stage.playing .platter { animation-play-state: running; }
   @keyframes spin { to { transform: rotate(360deg); } }
   .label {
     width: 42%; height: 42%; border-radius: 50%;
@@ -154,7 +172,7 @@
     transform-origin: right center; transform: rotate(-28deg);
     transition: transform .5s ease;
   }
-  .turntable.playing .tonearm { transform: rotate(-6deg); }
+  .player-stage.playing .tonearm { transform: rotate(-6deg); }
   .tonearm::before {
     content: ""; position: absolute; right: -6px; top: -6px; width: 20px; height: 20px;
     border-radius: 50%; background: #4a3f38; box-shadow: 0 0 0 1px var(--line);
@@ -169,7 +187,54 @@
     color: var(--muted); font-size: 13px; text-align: center; pointer-events: none;
     padding: 30px; line-height: 1.4;
   }
-  .turntable.playing .drop-hint { display: none; }
+  .player-stage.playing .drop-hint { display: none; }
+
+  /* ---------- Cassette ---------- */
+  .cassette {
+    aspect-ratio: 3 / 2; border-radius: 14px; background: var(--cassette-body);
+    border: 1px solid var(--line); padding: 16px;
+    flex-direction: column; gap: 12px;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 18px 40px rgba(0,0,0,0.5);
+  }
+  .cass-label {
+    background: var(--cassette-label); border-radius: 6px; padding: 7px 12px;
+    text-align: center; border: 1px solid rgba(0,0,0,0.08);
+    box-shadow: inset 0 0 0 2px rgba(0,0,0,0.03);
+  }
+  .cass-label small {
+    display: block; font-size: 9px; letter-spacing: 1px; font-weight: 800; color: var(--accent);
+  }
+  .cass-label .label-text {
+    font-size: 14px; font-weight: 800; color: #2a160d; line-height: 1.15;
+    display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden;
+  }
+  .cass-window {
+    flex: 1; position: relative; border-radius: 10px; background: #15110e;
+    display: flex; align-items: center; justify-content: space-around; padding: 0 12%;
+    box-shadow: inset 0 2px 12px rgba(0,0,0,0.7);
+  }
+  .cass-window .tape {
+    position: absolute; left: 16%; right: 16%; top: 50%; height: 7px;
+    transform: translateY(-50%); border-radius: 3px;
+    background: linear-gradient(#6a4630, #3a2418);
+  }
+  .reel {
+    position: relative; width: 33%; aspect-ratio: 1; border-radius: 50%;
+    background: radial-gradient(circle at 50% 45%, #2a231e, #0d0b0a 70%);
+    display: grid; place-items: center; box-shadow: 0 0 0 3px #0d0b0a, inset 0 0 8px #000;
+  }
+  .reel .hub {
+    width: 52%; aspect-ratio: 1; border-radius: 50%;
+    background: repeating-conic-gradient(from 0deg, var(--accent-2) 0 14deg, #1a1512 14deg 30deg);
+    box-shadow: 0 0 0 3px #2a231e, inset 0 0 0 3px rgba(0,0,0,0.4);
+  }
+  .player-stage.playing .reel .hub { animation: spin 1.6s linear infinite; }
+  .cass-foot { display: flex; justify-content: space-around; padding: 0 8%; }
+  .cass-foot span {
+    width: 9px; height: 9px; border-radius: 50%;
+    background: radial-gradient(circle at 40% 35%, #5a4d43, #2a231e);
+    box-shadow: inset 0 0 0 1px rgba(0,0,0,0.4);
+  }
 
   .now-playing { display: flex; flex-direction: column; gap: 6px; }
   .now-playing .np-artist { font-size: 17px; font-weight: 800; }
@@ -285,18 +350,43 @@
   <main>
     <!-- ===================== PLAYER COLUMN ===================== -->
     <section class="player-col">
-      <div class="turntable" id="turntable" aria-label="Drop an artist here to listen">
-        <div class="platter">
-          <div class="label" id="platterLabel">
-            <div class="spindle"></div>
-            <div>
-              <small>NOW PLAYING</small>
-              <strong id="labelText">—</strong>
+      <div class="player-head">
+        <span class="ph-label">Player</span>
+        <div class="seg" id="playerToggle">
+          <button data-player="vinyl" class="active">Vinyl</button>
+          <button data-player="cassette">Cassette</button>
+        </div>
+      </div>
+
+      <div class="player-stage mode-vinyl" id="playerStage" aria-label="Drop an artist here to listen">
+        <!-- Vinyl -->
+        <div class="turntable" id="turntable">
+          <div class="platter">
+            <div class="label" id="platterLabel">
+              <div class="spindle"></div>
+              <div>
+                <small>NOW PLAYING</small>
+                <strong id="labelText" class="label-text">—</strong>
+              </div>
             </div>
           </div>
+          <div class="tonearm"></div>
+          <div class="drop-hint">🎧<br/>Drag an artist onto the platter to hear a sample</div>
         </div>
-        <div class="tonearm"></div>
-        <div class="drop-hint" id="dropHint">🎧<br/>Drag an artist onto the platter to hear a sample</div>
+
+        <!-- Cassette -->
+        <div class="cassette">
+          <div class="cass-label">
+            <small>NOW PLAYING</small>
+            <span class="label-text">—</span>
+          </div>
+          <div class="cass-window">
+            <div class="tape"></div>
+            <div class="reel"><div class="hub"></div></div>
+            <div class="reel"><div class="hub"></div></div>
+          </div>
+          <div class="cass-foot"><span></span><span></span><span></span></div>
+        </div>
       </div>
 
       <div class="now-playing" id="nowPlaying">
@@ -435,15 +525,30 @@ const els = {
   whenSeg: document.getElementById("whenSeg"),
   crateList: document.getElementById("crateList"),
   crateTitle: document.getElementById("crateTitle"),
-  turntable: document.getElementById("turntable"),
+  playerStage: document.getElementById("playerStage"),
+  playerToggle: document.getElementById("playerToggle"),
   labelText: document.getElementById("labelText"),
-  dropHint: document.getElementById("dropHint"),
   nowPlaying: document.getElementById("nowPlaying"),
   embedWrap: document.getElementById("embedWrap"),
   liveCount: document.getElementById("liveCount"),
   cityLabel: document.getElementById("cityLabel"),
   genreBar: document.getElementById("genreBar"),
 };
+
+/* Player style (vinyl | cassette) — persisted, applied to the stage. */
+function setPlayer(style) {
+  const cassette = style === "cassette";
+  els.playerStage.classList.toggle("mode-cassette", cassette);
+  els.playerStage.classList.toggle("mode-vinyl", !cassette);
+  els.playerToggle.querySelectorAll("button").forEach(b =>
+    b.classList.toggle("active", b.dataset.player === style));
+  try { localStorage.setItem("np-player", style); } catch (e) {}
+}
+
+function initPlayerToggle() {
+  els.playerToggle.querySelectorAll("button").forEach(b =>
+    b.addEventListener("click", () => setPlayer(b.dataset.player)));
+}
 
 function initCities() {
   els.citySelect.innerHTML = Object.entries(CITIES)
@@ -625,8 +730,8 @@ async function play(id) {
   const s = allShows.find(x => String(x.id) === String(id));
   if (!s) return;
 
-  els.turntable.classList.add("playing");
-  els.labelText.textContent = s.artist;
+  els.playerStage.classList.add("playing");
+  document.querySelectorAll(".label-text").forEach(el => el.textContent = s.artist);
 
   const sflink = s.url
     ? `<a class="np-link" href="${s.url}" target="_blank" rel="noopener">View on SF LIVE ↗</a>` : "";
@@ -654,7 +759,7 @@ async function play(id) {
 }
 
 function initDrop() {
-  const t = els.turntable;
+  const t = els.playerStage;
   ["dragenter","dragover"].forEach(ev =>
     t.addEventListener(ev, e => { e.preventDefault(); t.classList.add("armed"); }));
   ["dragleave","drop"].forEach(ev =>
@@ -692,9 +797,12 @@ function initEvents() {
 
 /* boot */
 const savedTheme = (() => { try { return localStorage.getItem("pn-theme"); } catch (e) { return null; } })() || "light";
+const savedPlayer = (() => { try { return localStorage.getItem("np-player"); } catch (e) { return null; } })() || "vinyl";
 initCities();
 initGenres();
 syncGenreBar();
+initPlayerToggle();
+setPlayer(savedPlayer);   // default vinyl; restores last choice
 initMap();
 setTheme(savedTheme);   // default light; restores last choice
 initDrop();
