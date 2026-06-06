@@ -18,42 +18,48 @@ npx serve .
 
 ## What's wired up
 
+- **Live SF data** — San Francisco pulls real shows from the Vibemap / SF LIVE feed
+  (`https://sflive.art/wp-json/vibemap/v1/events-data`). Los Angeles is mock demo data.
 - **Turntable** — spins + tonearm drops when something is playing.
-- **Pulsing map** (Leaflet + Carto dark tiles) — one animated pin per live show.
-- **Drag-and-drop / click** — drag an artist card to the platter, click the card, or
-  click a map pin → "Listen on the player".
-- **Spotify embed** — loads the artist (or track) preview player.
-- **City selector** + **This weekend / This week** toggle.
+- **Pulsing map** (Leaflet + Carto tiles, light/dark) — one animated pin per live show.
+- **Drag-and-drop / click** — drag a card to the platter, click the card, or click a
+  map pin → "Listen on the player".
+- **Jump off to SF LIVE** — every show links out to its `sflive.art` event page (the
+  "View on SF LIVE ↗" link in the player and "Details on SF LIVE ↗" in map popups).
+- **Spotify** — embeds a preview when a show has a linked Spotify id; otherwise offers a
+  "search on Spotify" link (the feed has no music ids yet — see below).
+- **Light / dark toggle** + **This weekend / This week** date filter.
 
-## Swap in your real API
+## Data source (SF LIVE)
 
-All mock data lives in the clearly-marked block at the top of the `<script>` in
-[index.html](index.html). Replace the `loadShows()` function:
-
-```js
-async function loadShows(cityKey) {
-  const r = await fetch(`/api/shows?city=${cityKey}`);
-  return await r.json();
-}
-```
-
-Each show needs this shape:
+SF data is fetched and normalized in [index.html](index.html) — see `loadShows()` and
+`normalizeSfEvent()`. The feed returns ~983 events; each is mapped from `meta.vibemap_event_*`
+fields (name, start date, lat/lng, venue, categories/tags, image) to this shape:
 
 ```js
 {
   id, artist, genre, venue,
-  date,            // ISO datetime
-  when,            // 'weekend' | 'week'
-  lat, lng,        // map position
-  spotifyArtistId, // OR spotifyTrackId for a specific song
-  image            // optional avatar URL
+  date,            // ISO datetime (from vibemap_event_start_date)
+  lat, lng,        // from vibemap_event_latitude / _longitude
+  image,           // ImageKit thumbnail (resized via ?tr=w-120,h-120)
+  url,             // sflive.art permalink — the "jump off" target
+  spotifyArtistId, // OPTIONAL — not in the feed yet
 }
 ```
 
+The toggle filters by date window relative to today (weekend = Fri–Sun; week = next 7 days),
+and recurring occurrences are collapsed to the soonest show per title.
+
+### Adding music samples
+
+The feed has no Spotify/Tidal ids today. When that data exists, set `spotifyArtistId`
+(or `spotifyTrackId`) inside `normalizeSfEvent()` and the player will embed the preview
+automatically instead of linking out to a Spotify search.
+
 ## Ideas to take it further
 
-- **Tidal** — swap the embed URL for Tidal's embed, or add a source toggle.
-- **Auto-locate** the user's city via geolocation and default to it.
-- **Genre / time filters** on the crate and map.
+- **Tidal** — swap the embed for Tidal's, or add a source toggle.
+- **Auto-locate** the user's city via geolocation.
+- **Genre filter** — the feed already carries categories/tags (music, dance, theater…).
+- **More cities** — point another `live` city at its own Vibemap feed.
 - **"Queue"** multiple artists and crossfade between samples.
-- Real artist **avatars** in the crate (set `image` on each show).

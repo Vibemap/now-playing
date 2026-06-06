@@ -157,6 +157,22 @@
   .now-playing .np-artist { font-size: 17px; font-weight: 800; }
   .now-playing .np-meta { font-size: 13px; color: var(--muted); }
   .np-empty { color: var(--muted); font-size: 13px; }
+  .np-link {
+    align-self: flex-start; font-size: 12px; font-weight: 700; color: var(--accent);
+    text-decoration: none; border-bottom: 1px solid transparent;
+  }
+  .np-link:hover { border-bottom-color: var(--accent); }
+  .np-fallback {
+    padding: 14px; border-radius: 12px; border: 1px dashed var(--line);
+    font-size: 13px; color: var(--muted); line-height: 1.5;
+  }
+  .np-fallback a { color: var(--accent); font-weight: 700; text-decoration: none; }
+  .np-fallback a:hover { text-decoration: underline; }
+  .pc-link {
+    display: inline-block; margin-top: 8px; font-size: 12px; font-weight: 700;
+    color: var(--accent); text-decoration: none;
+  }
+  .pc-link:hover { text-decoration: underline; }
 
   .embed-wrap { border-radius: 12px; overflow: hidden; border: 1px solid var(--line); min-height: 80px; }
   .embed-wrap iframe { display: block; width: 100%; border: 0; }
@@ -288,44 +304,93 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 /* ============================================================
-   MOCK DATA  —  swap this block for your real API.
-   Expected shape per show:
+   DATA SOURCE
+   San Francisco pulls live from the Vibemap / SF LIVE feed:
+     https://sflive.art/wp-json/vibemap/v1/events-data
+   Each show is normalized to:
    {
-     id, artist, genre, venue, date (ISO), when ('weekend'|'week'),
-     lat, lng, spotifyArtistId (or spotifyTrackId), image (optional)
+     id, artist, genre, venue, date (ISO), lat, lng,
+     image, url (sflive.art permalink), spotifyArtistId? (optional)
    }
-   Replace loadShows() below with: const r = await fetch(API_URL); ...
+   Spotify ids aren't in the feed yet — when they are, set
+   spotifyArtistId/spotifyTrackId in normalizeSfEvent() and the
+   player will embed instead of linking out to search.
    ============================================================ */
 const CITIES = {
   sf: {
     name: "San Francisco", center: [37.7749, -122.4194], zoom: 13,
-    shows: [
-      { id:1, artist:"Tycho", genre:"Electronic", venue:"The Fillmore", date:"2026-06-06T21:00", when:"weekend", lat:37.7841, lng:-122.4330, spotifyArtistId:"5oOhM2DFWab8XhSdQiITry" },
-      { id:2, artist:"Toro y Moi", genre:"Indie", venue:"The Independent", date:"2026-06-06T20:00", when:"weekend", lat:37.7765, lng:-122.4376, spotifyArtistId:"1QAJqy2dA3ihHBFIHRphZj" },
-      { id:3, artist:"Khruangbin", genre:"Psych / Funk", venue:"Great American Music Hall", date:"2026-06-07T20:30", when:"weekend", lat:37.7855, lng:-122.4186, spotifyArtistId:"2mVVjNmdjXZZDvhgQWiakk" },
-      { id:4, artist:"Thundercat", genre:"Jazz / Funk", venue:"The Warfield", date:"2026-06-07T21:00", when:"weekend", lat:37.7827, lng:-122.4100, spotifyArtistId:"26d8Rd9pgWlc2Ws0qjJYUk" },
-      { id:5, artist:"Bonobo", genre:"Electronic", venue:"August Hall", date:"2026-06-05T22:00", when:"weekend", lat:37.7866, lng:-122.4090, spotifyArtistId:"1Bl6wpkWCQ4KVgnASpvzzA" },
-      { id:6, artist:"Mac DeMarco", genre:"Indie", venue:"The Chapel", date:"2026-06-09T20:00", when:"week", lat:37.7530, lng:-122.4197, spotifyArtistId:"3Sz7ZnJQBIHsXLUSo0OQtM" },
-      { id:7, artist:"Phoebe Bridgers", genre:"Indie Folk", venue:"Bottom of the Hill", date:"2026-06-10T20:30", when:"week", lat:37.7607, lng:-122.3962, spotifyArtistId:"1r1uxoy19fzMxunt3ONAkG" },
-      { id:8, artist:"Polo & Pan", genre:"Electronic", venue:"The Midway", date:"2026-06-11T21:00", when:"week", lat:37.7475, lng:-122.3880, spotifyArtistId:"1Wccdce7tQX2pZF9jVHCSk" }
-    ]
+    live: true, api: "https://sflive.art/wp-json/vibemap/v1/events-data"
   },
   la: {
-    name: "Los Angeles", center: [34.0522, -118.2437], zoom: 12,
+    name: "Los Angeles", center: [34.0522, -118.2437], zoom: 12, live: false,
     shows: [
-      { id:11, artist:"Kamasi Washington", genre:"Jazz", venue:"The Novo", date:"2026-06-06T20:00", when:"weekend", lat:34.0430, lng:-118.2673, spotifyArtistId:"5SgcjU3bgTUNFQYHHJrcgU" },
-      { id:12, artist:"Phantogram", genre:"Electronic", venue:"The Fonda", date:"2026-06-07T21:00", when:"weekend", lat:34.1016, lng:-118.3260, spotifyArtistId:"1XThKWv9ekIYBfp3wGfGf9" },
-      { id:13, artist:"Mac DeMarco", genre:"Indie", venue:"The Greek Theatre", date:"2026-06-10T20:00", when:"week", lat:34.1186, lng:-118.2939, spotifyArtistId:"3Sz7ZnJQBIHsXLUSo0OQtM" }
+      { id:11, artist:"Kamasi Washington", genre:"Jazz", venue:"The Novo", date:"2026-06-06T20:00", lat:34.0430, lng:-118.2673, spotifyArtistId:"5SgcjU3bgTUNFQYHHJrcgU" },
+      { id:12, artist:"Phantogram", genre:"Electronic", venue:"The Fonda", date:"2026-06-07T21:00", lat:34.1016, lng:-118.3260, spotifyArtistId:"1XThKWv9ekIYBfp3wGfGf9" },
+      { id:13, artist:"Mac DeMarco", genre:"Indie", venue:"The Greek Theatre", date:"2026-06-10T20:00", lat:34.1186, lng:-118.2939, spotifyArtistId:"3Sz7ZnJQBIHsXLUSo0OQtM" }
     ]
   }
 };
 
-/* In production, replace this with a fetch to your API. */
+/* Offline / fetch-failure fallback so the prototype always shows something. */
+const MOCK_SF = [
+  { id:1, artist:"Tycho", genre:"Electronic", venue:"The Fillmore", date:"2026-06-06T21:00", lat:37.7841, lng:-122.4330, spotifyArtistId:"5oOhM2DFWab8XhSdQiITry" },
+  { id:2, artist:"Toro y Moi", genre:"Indie", venue:"The Independent", date:"2026-06-06T20:00", lat:37.7765, lng:-122.4376, spotifyArtistId:"1QAJqy2dA3ihHBFIHRphZj" },
+  { id:3, artist:"Khruangbin", genre:"Psych / Funk", venue:"Great American Music Hall", date:"2026-06-07T20:30", lat:37.7855, lng:-122.4186, spotifyArtistId:"2mVVjNmdjXZZDvhgQWiakk" }
+];
+
+/* Pull a small, fast thumbnail. SF LIVE serves images through ImageKit,
+   which resizes via a ?tr= transform — far lighter than the full WP image. */
+function pickThumb(meta) {
+  const ik = (meta.vibemap_event_vibemap_images || meta.vibemap_event_venue_images || "")
+    .match(/https:\/\/ik\.imagekit\.io\/[^\s,]+?\.(?:webp|jpe?g|png)\?updatedAt=\d+/i);
+  if (ik) return ik[0] + "&tr=w-120,h-120,fo-auto";
+  return null;
+}
+
+/* Map one SF LIVE feed event to our show shape. */
+function normalizeSfEvent(e) {
+  const m = e.meta || {};
+  const lat = parseFloat(m.vibemap_event_latitude);
+  const lng = parseFloat(m.vibemap_event_longitude);
+  if (isNaN(lat) || isNaN(lng)) return null;
+  const start = m.vibemap_event_start_date || "";
+  if (!start) return null;
+  // first visible, non-utility tag reads best as the "genre"
+  const tag = (e.tags || []).find(t =>
+    !t.hide_from_frontend && !/sf-live|events?_feed|san-francisco/i.test(t.slug));
+  const cat = (m.vibemap_event_categories || "").split(",")[0].trim();
+  const genre = (tag && tag.name)
+    || (cat && cat !== "none" ? cat[0].toUpperCase() + cat.slice(1) : "Live");
+  return {
+    id: e.id,
+    artist: e.title,
+    genre,
+    venue: m.vibemap_event_venue_name || m.vibemap_event_hotspots_place || "SF venue",
+    date: start.replace(" ", "T"),
+    lat, lng,
+    image: pickThumb(m) || e.featured_image || null,
+    url: e.permalink || m.vibemap_event_url || null
+    // spotifyArtistId: <-- set here once the music feed provides it
+  };
+}
+
 async function loadShows(cityKey) {
-  // Example:
-  // const r = await fetch(`/api/shows?city=${cityKey}`);
-  // return await r.json();
-  return CITIES[cityKey].shows;
+  const city = CITIES[cityKey];
+  if (!city.live) return city.shows;
+  try {
+    const r = await fetch(city.api);
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    const j = await r.json();
+    const shows = (j.events || []).map(normalizeSfEvent).filter(Boolean);
+    // collapse recurring occurrences: keep the soonest per title
+    shows.sort((a, b) => new Date(a.date) - new Date(b.date));
+    const byTitle = new Map();
+    for (const s of shows) if (!byTitle.has(s.artist)) byTitle.set(s.artist, s);
+    return [...byTitle.values()];
+  } catch (err) {
+    console.warn("SF LIVE fetch failed — falling back to mock data.", err);
+    return MOCK_SF;
+  }
 }
 
 /* ============================================================
@@ -390,9 +455,36 @@ function initials(name) {
   return name.split(/\s+/).slice(0,2).map(w => w[0]).join("").toUpperCase();
 }
 
+/* Date window for the current toggle, relative to today. */
+function windowRange() {
+  const start = new Date(); start.setHours(0, 0, 0, 0);
+  const end = new Date(start);
+  if (currentWhen === "weekend") {
+    const dow = start.getDay();               // 0 Sun … 6 Sat
+    if (dow >= 1 && dow <= 4) start.setDate(start.getDate() + (5 - dow)); // jump to Fri
+    end.setTime(start.getTime());
+    end.setDate(end.getDate() + ((7 - end.getDay()) % 7)); // through Sunday
+  } else {
+    end.setDate(end.getDate() + 7);           // next 7 days
+  }
+  end.setHours(23, 59, 59, 999);
+  return [start, end];
+}
+
 function visibleShows() {
-  return allShows.filter(s => currentWhen === "week" ? true : s.when === "weekend");
-  // 'week' shows everything; 'weekend' filters to weekend only
+  const [start, end] = windowRange();
+  let list = allShows.filter(s => {
+    const d = new Date(s.date);
+    return !isNaN(d) && d >= start && d <= end;
+  });
+  // never show an empty stage — fall back to the soonest upcoming shows
+  if (!list.length) {
+    list = allShows.slice()
+      .filter(s => !isNaN(new Date(s.date)) && new Date(s.date) >= start)
+      .sort((a, b) => new Date(a.date) - new Date(b.date))
+      .slice(0, 12);
+  }
+  return list;
 }
 
 function renderCrate() {
@@ -400,7 +492,7 @@ function renderCrate() {
   els.crateTitle.textContent = currentWhen === "weekend" ? "Playing this weekend" : "Playing this week";
   els.crateList.innerHTML = shows.map(s => `
     <div class="card" draggable="true" data-id="${s.id}">
-      <div class="avatar">${s.image ? "" : initials(s.artist)}</div>
+      <div class="avatar"${s.image ? ` style="background-image:url('${s.image}')"` : ""}>${s.image ? "" : initials(s.artist)}</div>
       <div class="info">
         <div class="name">${s.artist}</div>
         <div class="sub">${s.venue}</div>
@@ -435,11 +527,14 @@ function renderMarkers() {
       iconSize: [14,14], iconAnchor: [7,7]
     });
     const m = L.marker([s.lat, s.lng], { icon }).addTo(markerLayer);
+    const sflink = s.url
+      ? `<a class="pc-link" href="${s.url}" target="_blank" rel="noopener">Details on SF LIVE ↗</a>` : "";
     m.bindPopup(`
       <div class="popup-card">
         <div class="pc-name">${s.artist}</div>
         <div class="pc-meta">${s.genre} · ${s.venue}<br/>${fmtWhen(s.date)}</div>
         <button onclick="play(${s.id})">▶ Listen on the player</button>
+        ${sflink}
       </div>`);
   });
 }
@@ -451,17 +546,28 @@ function play(id) {
   els.turntable.classList.add("playing");
   els.labelText.textContent = s.artist;
 
+  const sflink = s.url
+    ? `<a class="np-link" href="${s.url}" target="_blank" rel="noopener">View on SF LIVE ↗</a>` : "";
   els.nowPlaying.innerHTML = `
     <div class="np-artist">${s.artist}</div>
-    <div class="np-meta">${s.genre} · ${s.venue} · ${fmtWhen(s.date)}</div>`;
+    <div class="np-meta">${s.genre} · ${s.venue} · ${fmtWhen(s.date)}</div>
+    ${sflink}`;
 
-  // Spotify embed (artist or track). Swap for Tidal embed if you prefer.
-  const embedSrc = s.spotifyTrackId
-    ? `https://open.spotify.com/embed/track/${s.spotifyTrackId}?utm_source=playingnow`
-    : `https://open.spotify.com/embed/artist/${s.spotifyArtistId}?utm_source=playingnow`;
+  // If the show has a linked Spotify id, embed it; otherwise offer a search.
+  // (SF LIVE events have no music id yet — wire it in normalizeSfEvent().)
   els.embedWrap.style.display = "block";
-  els.embedWrap.innerHTML =
-    `<iframe src="${embedSrc}" height="152" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy"></iframe>`;
+  if (s.spotifyTrackId || s.spotifyArtistId) {
+    const path = s.spotifyTrackId ? `track/${s.spotifyTrackId}` : `artist/${s.spotifyArtistId}`;
+    els.embedWrap.innerHTML =
+      `<iframe src="https://open.spotify.com/embed/${path}?utm_source=nowplaying" height="152" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy"></iframe>`;
+  } else {
+    const q = encodeURIComponent(s.artist);
+    els.embedWrap.innerHTML =
+      `<div class="np-fallback">
+         <span>No linked track yet —</span>
+         <a href="https://open.spotify.com/search/${q}" target="_blank" rel="noopener">search “${s.artist}” on Spotify ↗</a>
+       </div>`;
+  }
 
   // highlight on map
   map.flyTo([s.lat, s.lng], 15, { duration: 0.8 });
