@@ -493,17 +493,7 @@
     .controls select { flex: 1 1 auto; }
     .genre-bar, .now-bar { padding-left: 16px; padding-right: 16px; }
 
-    /* Inline player: map → player → rack, no overlay (straddle is desktop-only) */
-    .map-col { display: block; flex: 0 0 auto; height: auto; min-height: 0; overflow: visible; }
-    #map { position: relative; inset: auto; height: 24vh; min-height: 150px; }   /* shorter map */
-    .stage {
-      position: static; transform: none; left: auto; bottom: auto; width: auto;
-      margin: 12px 0 6px; z-index: auto;
-    }
-    .player-frame { width: 176px; height: 176px; margin-bottom: 0; }
-    .player-frame:has(.mode-cassette) { height: 117px; margin-bottom: 0; }
-    .player-frame .player-stage { width: 320px; transform: scale(0.55); }
-    .loc-nav { margin-bottom: 8px; }
+    /* Player straddles/overlays the map, same as desktop */
     .embed-wrap {
       position: static; left: auto; right: auto; width: auto; max-width: 360px;
       margin: 10px auto 2px; box-shadow: none;
